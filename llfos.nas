@@ -1,0 +1,8 @@
+  ORG 0xc200 ; = 0x8000 + 0x4200 にこのプログラムが読み込まれる
+
+  MOV AL, 0x13
+  MOV AH, 0x00
+  INT 0x10
+fin:
+  HLT
+  JMP fin
