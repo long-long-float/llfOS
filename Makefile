@@ -38,9 +38,12 @@ bootpack.nas: bootpack.gas
 bootpack.obj: bootpack.nas
 	$(NASK) bootpack.nas bootpack.obj bootpack.lst
 
-bootpack.bim: bootpack.obj
+naskfunc.obj: naskfunc.nas
+	$(NASK) naskfunc.nas naskfunc.obj naskfunc.lst
+
+bootpack.bim: bootpack.obj naskfunc.obj
 	$(OBJ2BIM) @$(RULEFILE) out:bootpack.bim stack:3136k map:bootpack.map \
-		bootpack.obj
+		bootpack.obj naskfunc.obj
 # 3MB+64KB=3136KB
 
 bootpack.hrb: bootpack.bim
@@ -54,5 +57,5 @@ run:
 	qemu-system-i386 -fda helloos.img
 
 clean:
-	rm ipl.bin ipl.lst asmhead.bin asmhead.lst llfos.sys \
-		bootpack.gas bootpack.lst bootpack.map bootpack.nas bootpack.obj bootpack.bim bootpack.hrb helloos.img
+	rm llfos.sys bootpack.map bootpack.nas bootpack.bim bootpack.hrb helloos.img
+	rm *.bin *.lst *.gas *.obj
