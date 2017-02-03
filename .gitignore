@@ -1,3 +1,10 @@
 *.img
 *.bin
 *.lst
+*.bim
+*.gas
+*.hrb
+*.map
+*.obj
+bootpack.nas
+llfos.sys
