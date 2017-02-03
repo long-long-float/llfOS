@@ -86,6 +86,7 @@ next:
   CMP CH, CYLS  ; CH < CYLS(シリンダ)
   JB  readloop
 
+  MOV [0x0ff0], CH
   JMP 0xc200 ; llfos.sysへ
 
 error:
