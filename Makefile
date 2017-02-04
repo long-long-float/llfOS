@@ -2,7 +2,7 @@ TOOLPATH = wine ./tolset/z_tools/
 INCPATH  = ./tolset/z_tools/haribote/
 
 NASK     = $(TOOLPATH)nask.exe
-CC1      = $(TOOLPATH)cc1.exe -I$(INCPATH) -Os -Wall -quiet
+CC1      = $(TOOLPATH)cc1.exe -I$(INCPATH) -Os -Wall -quiet -std=c99
 GAS2NASK = $(TOOLPATH)gas2nask.exe -a
 OBJ2BIM  = $(TOOLPATH)obj2bim.exe
 BIM2HRB  = $(TOOLPATH)bim2hrb.exe
@@ -57,5 +57,5 @@ run:
 	qemu-system-i386 -fda helloos.img
 
 clean:
-	rm llfos.sys bootpack.map bootpack.nas bootpack.bim bootpack.hrb helloos.img
 	rm *.bin *.lst *.gas *.obj
+	rm llfos.sys bootpack.map bootpack.nas bootpack.bim bootpack.hrb helloos.img
