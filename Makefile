@@ -9,6 +9,8 @@ BIM2HRB  = $(TOOLPATH)bim2hrb.exe
 RULEFILE = ./tolset/z_tools/haribote/haribote.rul
 EDIMG    = $(TOOLPATH)edimg.exe
 IMGTOL   = $(TOOLPATH)imgtol.com
+MAKEFONT = $(TOOLPATH)makefont.exe
+BIN2OBJ  = $(TOOLPATH)bin2obj.exe
 
 all:
 	make build
@@ -29,6 +31,12 @@ asmhead.bin: asmhead.nas
 build:
 	make helloos.img
 
+hankaku.bin : hankaku.txt
+	$(MAKEFONT) hankaku.txt hankaku.bin
+
+hankaku.obj : hankaku.bin
+	$(BIN2OBJ) hankaku.bin hankaku.obj _hankaku
+
 bootpack.gas: bootpack.c
 	$(CC1) -o bootpack.gas bootpack.c
 
@@ -41,9 +49,9 @@ bootpack.obj: bootpack.nas
 naskfunc.obj: naskfunc.nas
 	$(NASK) naskfunc.nas naskfunc.obj naskfunc.lst
 
-bootpack.bim: bootpack.obj naskfunc.obj
+bootpack.bim: bootpack.obj naskfunc.obj hankaku.obj
 	$(OBJ2BIM) @$(RULEFILE) out:bootpack.bim stack:3136k map:bootpack.map \
-		bootpack.obj naskfunc.obj
+		bootpack.obj naskfunc.obj hankaku.obj
 # 3MB+64KB=3136KB
 
 bootpack.hrb: bootpack.bim

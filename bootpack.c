@@ -1,3 +1,10 @@
+#include <stdio.h>
+
+#define FONT_WIDTH  8
+#define FONT_HEIGHT 16
+
+extern char hankaku[4096];
+
 typedef unsigned char byte;
 
 typedef struct {
@@ -15,6 +22,8 @@ void io_store_eflags(int eflags);
 void init_palette(void);
 void set_palette(int start, int end, byte *rgb);
 void boxfill8(byte* vram, int width, byte c, int x0, int y0, int x1, int y1);
+void putfont8(byte *vram, int width, byte color, int left, int top, char *font);
+void putfonts8_asc(byte *vram, int width, byte color, int left, int top, char *str);
 
 void HariMain() {
   init_palette();
@@ -25,6 +34,12 @@ void HariMain() {
   int width = info->screenx, height = info->screeny;
 
   boxfill8(vram, width, 4, 0, height - 20, 20, height);
+
+  putfonts8_asc(vram, width, 7, 0, 0, "Welcome to llfOS!");
+
+  char buf[1024];
+  sprintf(buf, "screen %dx%d", info->screenx, info->screeny);
+  putfonts8_asc(vram, width, 7, 0, FONT_HEIGHT, buf);
 
   while(1) io_hlt();
 }
@@ -66,10 +81,26 @@ void set_palette(int start, int end, byte *rgb) {
   io_store_eflags(eflags);
 }
 
-void boxfill8(byte* vram, int width, byte c, int x0, int y0, int x1, int y1) {
+void boxfill8(byte* vram, int width, byte color, int x0, int y0, int x1, int y1) {
   for (int y = y0; y < y1; y++) {
     for (int x = x0; x < x1; x++) {
-      vram[y * width + x] = c;
+      vram[y * width + x] = color;
     }
+  }
+}
+
+void putfont8(byte *vram, int width, byte color, int left, int top, char *font) {
+  for (int y = 0; y < 16; y++) {
+    for (int x = 0; x < 8; x++) {
+      if ((font[y] >> (7 - x)) & 0x01) {
+        vram[(top + y) * width + (left + x)] = color;
+      }
+    }
+  }
+}
+
+void putfonts8_asc(byte *vram, int width, byte color, int left, int top, char *str) {
+  for (int i = 0; str[i] != NULL; i++) {
+    putfont8(vram, width, color, left + i * FONT_WIDTH, top, &hankaku[str[i] *16]);
   }
 }
