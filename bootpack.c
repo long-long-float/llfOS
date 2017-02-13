@@ -3,6 +3,11 @@
 #define FONT_WIDTH  8
 #define FONT_HEIGHT 16
 
+enum Color {
+  COLOR_LITE_BLUE = 4,
+  COLOR_WHITE     = 7,
+};
+
 extern char hankaku[4096];
 
 typedef unsigned char byte;
@@ -31,15 +36,12 @@ void HariMain() {
   BootInfo* info = (BootInfo*)0x0ff0;
 
   byte* vram = info->vram;
-  int width = info->screenx, height = info->screeny;
 
-  boxfill8(vram, width, 4, 0, height - 20, 20, height);
-
-  putfonts8_asc(vram, width, 7, 0, 0, "Welcome to llfOS!");
+  putfonts8_asc(vram, info->screenx, COLOR_WHITE, 0, 0, "Welcome to llfOS!");
 
   char buf[1024];
   sprintf(buf, "screen %dx%d", info->screenx, info->screeny);
-  putfonts8_asc(vram, width, 7, 0, FONT_HEIGHT, buf);
+  putfonts8_asc(vram, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT, buf);
 
   while(1) io_hlt();
 }
@@ -100,7 +102,7 @@ void putfont8(byte *vram, int width, byte color, int left, int top, char *font) 
 }
 
 void putfonts8_asc(byte *vram, int width, byte color, int left, int top, char *str) {
-  for (int i = 0; str[i] != NULL; i++) {
+  for (int i = 0; str[i] != '\0'; i++) {
     putfont8(vram, width, color, left + i * FONT_WIDTH, top, &hankaku[str[i] *16]);
   }
 }
