@@ -1,5 +1,11 @@
 typedef unsigned char byte;
 
+typedef struct {
+  byte cycles, leds, vmode, reserve;
+  short screenx, screeny;
+  byte *vram;
+} BootInfo;
+
 void io_hlt();
 void io_cli(void);
 void io_out8(int port, int data);
@@ -13,8 +19,10 @@ void boxfill8(byte* vram, int width, byte c, int x0, int y0, int x1, int y1);
 void HariMain() {
   init_palette();
 
-  byte* vram = (byte*)0xa0000;
-  int width = 320, height = 200;
+  BootInfo* info = (BootInfo*)0x0ff0;
+
+  byte* vram = info->vram;
+  int width = info->screenx, height = info->screeny;
 
   boxfill8(vram, width, 4, 0, height - 20, 20, height);
 
