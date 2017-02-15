@@ -1,3 +1,5 @@
+OBJS_BOOTPATH = bootpack.obj naskfunc.obj hankaku.obj graphic.obj dsctbl.obj
+
 TOOLPATH = wine ./tolset/z_tools/
 INCPATH  = ./tolset/z_tools/haribote/
 
@@ -37,21 +39,14 @@ hankaku.bin : hankaku.txt
 hankaku.obj : hankaku.bin
 	$(BIN2OBJ) hankaku.bin hankaku.obj _hankaku
 
-bootpack.gas: bootpack.c
-	$(CC1) -o bootpack.gas bootpack.c
-
-bootpack.nas: bootpack.gas
-	$(GAS2NASK) bootpack.gas bootpack.nas
-
 bootpack.obj: bootpack.nas
 	$(NASK) bootpack.nas bootpack.obj bootpack.lst
 
 naskfunc.obj: naskfunc.nas
 	$(NASK) naskfunc.nas naskfunc.obj naskfunc.lst
 
-bootpack.bim: bootpack.obj naskfunc.obj hankaku.obj
-	$(OBJ2BIM) @$(RULEFILE) out:bootpack.bim stack:3136k map:bootpack.map \
-		bootpack.obj naskfunc.obj hankaku.obj
+bootpack.bim: $(OBJS_BOOTPATH)
+	$(OBJ2BIM) @$(RULEFILE) out:bootpack.bim stack:3136k map:bootpack.map $(OBJS_BOOTPATH)
 # 3MB+64KB=3136KB
 
 bootpack.hrb: bootpack.bim
@@ -59,6 +54,15 @@ bootpack.hrb: bootpack.bim
 
 llfos.sys: asmhead.bin bootpack.hrb
 	cat asmhead.bin bootpack.hrb > llfos.sys
+
+%.gas: %.c
+	$(CC1) -o $*.gas $*.c
+
+%.nas: %.gas
+	$(GAS2NASK) $*.gas $*.nas
+
+%.obj: %.nas
+	$(NASK) $*.nas $*.obj $*.lst
 
 run:
 	make build
