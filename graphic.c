@@ -39,7 +39,7 @@ void set_palette(int start, int end, byte *rgb) {
   io_store_eflags(eflags);
 }
 
-void boxfill8(byte* vram, int width, byte color, int x0, int y0, int x1, int y1) {
+void boxfill8(byte* vram, int width, Color color, int x0, int y0, int x1, int y1) {
   for (int y = y0; y < y1; y++) {
     for (int x = x0; x < x1; x++) {
       vram[y * width + x] = color;
@@ -47,7 +47,7 @@ void boxfill8(byte* vram, int width, byte color, int x0, int y0, int x1, int y1)
   }
 }
 
-void putfont8(byte *vram, int width, byte color, int left, int top, char *font) {
+void putfont8(byte *vram, int width, Color color, int left, int top, char *font) {
   for (int y = 0; y < 16; y++) {
     for (int x = 0; x < 8; x++) {
       if ((font[y] >> (7 - x)) & 0x01) {
@@ -57,9 +57,9 @@ void putfont8(byte *vram, int width, byte color, int left, int top, char *font) 
   }
 }
 
-void putfonts8_asc(byte *vram, int width, byte color, int left, int top, char *str) {
+void putfonts8_asc(byte *vram, int width, Color color, int left, int top, char *str) {
   for (int i = 0; str[i] != '\0'; i++) {
-    putfont8(vram, width, color, left + i * FONT_WIDTH, top, &hankaku[str[i] *16]);
+    putfont8(vram, width, color, left + i * FONT_WIDTH, top, &hankaku[str[i] * 16]);
   }
 }
 
