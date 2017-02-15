@@ -10,14 +10,18 @@ void init_gdtidt() {
   for (int i = 0; i < 8192; i++) {
     set_segmdesc(&gdt[i], 0, 0, 0);
   }
-  set_segmdesc(&gdt[1], 0xffffffff, 0x00000000, 0x4092);
-  set_segmdesc(&gdt[2], 0x0007ffff, 0x00280000, 0x409a);
+  set_segmdesc(&gdt[1], 0xffffffff, 0x00000000, AR_DATA32_RW);
+  set_segmdesc(&gdt[2], LIMIT_BOTPAK, ADR_BOTPAK, AR_CODE32_ER);
   load_gdtr(0xffff, GDT_ADDR);
 
   for (int i = 0; i < 256; i++) {
     set_gatedesc(&idt[i], 0, 0, 0);
   }
   load_idtr(0x7ff, IDT_ADDR);
+
+  set_gatedesc(&idt[0x21], (int)asm_inthandler21, 2 << 3, AR_INTGATE32);
+  set_gatedesc(&idt[0x2c], (int)asm_inthandler2c, 2 << 3, AR_INTGATE32);
+  set_gatedesc(&idt[0x27], (int)asm_inthandler27, 2 << 3, AR_INTGATE32);
 }
 
 void set_segmdesc(SegmentDescriptor *sd, unsigned int limit, int base, int ar) {
