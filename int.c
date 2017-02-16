@@ -1,8 +1,7 @@
 #include "bootpack.h"
 
-#define PORT_KEYDAT 0x0060
-
 FIFO8 keybuf;
+FIFO8 mousebuf;
 
 void init_pic() {
   io_out8(PIC0_IMR,  0xff  ); /* 全ての割り込みを受け付けない */
@@ -24,8 +23,6 @@ void init_pic() {
 
 // PS/2キーボードからの割り込み
 void inthandler21(int *esp) {
-  BootInfo *info = (BootInfo*)ADR_BOOTINFO;
-
   io_out8(PIC0_OCW2, 0x61);
   byte data = io_in8(PORT_KEYDAT);
 
@@ -34,10 +31,11 @@ void inthandler21(int *esp) {
 
 // PS/2マウスからの割り込み
 void inthandler2c(int *esp) {
-  BootInfo *info = (BootInfo*)ADR_BOOTINFO;
-  boxfill8(info->vram, info->screenx, COLOR_LIGHT_BLUE, 0, 0, 32 * 8 - 1, 15);
-  putfonts8_asc(info->vram, info->screenx, 0, 0, COLOR_WHITE, "INT 2C (IRQ-12) : PS/2 mouse");
-  while(1) io_hlt();
+  io_out8(PIC1_OCW2, 0x64); // スレーブ
+  io_out8(PIC0_OCW2, 0x62); // マスター
+  byte data = io_in8(PORT_KEYDAT);
+
+  fifo8_push(&mousebuf, data);
 }
 
 // PIC0からの不完全割り込み対策

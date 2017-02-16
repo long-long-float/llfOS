@@ -13,7 +13,9 @@ typedef struct {
 // naskfunc.nas
 
 void io_hlt();
+void io_sti();
 void io_cli();
+void io_stihlt();
 void io_out8(int port, int data);
 int io_in8(int port);
 int io_load_eflags();
@@ -94,6 +96,15 @@ void set_gatedesc(GateDescriptor *gd, int offset, int selector, int ar);
 #define PIC1_ICW3   0x00a1
 #define PIC1_ICW4   0x00a1
 
+#define PORT_KEYDAT 0x0060
+#define PORT_KEYSTA 0x0064
+#define PORT_KEYCMD 0x0064
+#define KEYSTA_SEND_NOTREADY 0x02
+#define KEYCMD_WRITE_MODE    0x60
+#define KBC_MODE    0x47
+#define KEYCMD_SENDTO_MOUSE  0xd4
+#define MOUSECMD_ENABLE      0xf4
+
 void init_pic();
 
 // fifo8.c
@@ -112,4 +123,5 @@ typedef enum {
 void fifo8_init(FIFO8 *fifo8, int size, byte *buf);
 int fifo8_push(FIFO8 *fifo8, byte data);
 int fifo8_pop(FIFO8 *fifo8);
+int fifo8_count(FIFO8 *fifo8);
 
