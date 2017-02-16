@@ -78,6 +78,12 @@ void set_gatedesc(GateDescriptor *gd, int offset, int selector, int ar);
 
 // int.c
 
+typedef struct {
+  byte data[32];
+  int  count;
+  int  head, tail;
+} KeyBuffer;
+
 // PIC0 : マスターPIC
 // PIC1 : スレーブPIC
 #define PIC0_ICW1   0x0020

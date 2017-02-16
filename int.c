@@ -1,5 +1,9 @@
 #include "bootpack.h"
 
+#define PORT_KEYDAT 0x0060
+
+KeyBuffer keybuf;
+
 void init_pic() {
   io_out8(PIC0_IMR,  0xff  ); /* 全ての割り込みを受け付けない */
   io_out8(PIC1_IMR,  0xff  ); /* 全ての割り込みを受け付けない */
@@ -21,9 +25,15 @@ void init_pic() {
 // PS/2キーボードからの割り込み
 void inthandler21(int *esp) {
   BootInfo *info = (BootInfo*)ADR_BOOTINFO;
-  boxfill8(info->vram, info->screenx, COLOR_LIGHT_BLUE, 0, 0, 32 * 8 - 1, 15);
-  putfonts8_asc(info->vram, info->screenx, COLOR_WHITE, 0, 0, "INT 21 (IRQ-1) : PS/2 keyboard");
-  while(1) io_hlt();
+
+  io_out8(PIC0_OCW2, 0x61);
+  byte data = io_in8(PORT_KEYDAT);
+
+  if (keybuf.count < 32) {
+    keybuf.data[keybuf.tail] = data;
+    keybuf.count++;
+    keybuf.tail = (keybuf.tail += 1) % 32;
+  }
 }
 
 // PS/2マウスからの割り込み

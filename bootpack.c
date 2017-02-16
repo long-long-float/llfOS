@@ -1,6 +1,8 @@
 #include "bootpack.h"
 #include <stdio.h>
 
+extern KeyBuffer keybuf;
+
 void HariMain() {
   init_gdtidt();
   init_pic();
@@ -25,6 +27,26 @@ void HariMain() {
   io_out8(PIC0_IMR, 0xf9); // PIC1とキーボードを許可
   io_out8(PIC1_IMR, 0xef); // マウスを許可
 
-  while(1) io_hlt();
+  while (1) {
+    // keybuf.dataを読み取っている間に割り込みが来たら困るので
+    io_cli();
+
+    if (keybuf.count > 0) {
+      int data = keybuf.data[keybuf.head];
+      keybuf.head = (keybuf.head + 1) % 32;
+      keybuf.count--;
+
+      io_sti();
+
+      boxfill8(info->vram, info->screenx, COLOR_LIGHT_BLUE, 0, 0, 32 * 8 - 1, 15);
+
+      char buf[20];
+      sprintf(buf, "keyboard: %02X", data);
+      putfonts8_asc(info->vram, info->screenx, COLOR_WHITE, 0, 0, buf);
+    } else {
+      // STIの後に割り込みが来るとキー情報があるのにHLTしてしまうので一緒に実行する
+      io_stihlt();
+    }
+  }
 }
 
