@@ -1,7 +1,7 @@
 #include "bootpack.h"
 #include <stdio.h>
 
-extern KeyBuffer keybuf;
+extern FIFO8 keybuf;
 
 void HariMain() {
   init_gdtidt();
@@ -27,14 +27,15 @@ void HariMain() {
   io_out8(PIC0_IMR, 0xf9); // PIC1とキーボードを許可
   io_out8(PIC1_IMR, 0xef); // マウスを許可
 
+  byte kbuf[32];
+  fifo8_init(&keybuf, 32, kbuf);
+
   while (1) {
     // keybuf.dataを読み取っている間に割り込みが来たら困るので
     io_cli();
 
-    if (keybuf.count > 0) {
-      int data = keybuf.data[keybuf.head];
-      keybuf.head = (keybuf.head + 1) % 32;
-      keybuf.count--;
+    if (fifo8_count(&keybuf) > 0) {
+      int data = fifo8_pop(&keybuf);
 
       io_sti();
 
