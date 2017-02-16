@@ -15,6 +15,7 @@ typedef struct {
 void io_hlt();
 void io_cli();
 void io_out8(int port, int data);
+int io_in8(int port);
 int io_load_eflags();
 void io_store_eflags(int eflags);
 void load_gdtr(int limit, void *addr);
@@ -78,12 +79,6 @@ void set_gatedesc(GateDescriptor *gd, int offset, int selector, int ar);
 
 // int.c
 
-typedef struct {
-  byte data[32];
-  int  count;
-  int  head, tail;
-} KeyBuffer;
-
 // PIC0 : マスターPIC
 // PIC1 : スレーブPIC
 #define PIC0_ICW1   0x0020
@@ -100,3 +95,21 @@ typedef struct {
 #define PIC1_ICW4   0x00a1
 
 void init_pic();
+
+// fifo8.c
+
+typedef struct {
+  byte *buf;
+  int  size, free;
+  int  head, tail;
+  int  flags;
+} FIFO8;
+
+typedef enum {
+  FIFO8_OVERFLOW = 1,
+} FIFO8Flags;
+
+void fifo8_init(FIFO8 *fifo8, int size, byte *buf);
+int fifo8_push(FIFO8 *fifo8, byte data);
+int fifo8_pop(FIFO8 *fifo8);
+

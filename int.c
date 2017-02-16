@@ -2,7 +2,7 @@
 
 #define PORT_KEYDAT 0x0060
 
-KeyBuffer keybuf;
+FIFO8 keybuf;
 
 void init_pic() {
   io_out8(PIC0_IMR,  0xff  ); /* 全ての割り込みを受け付けない */
@@ -29,11 +29,7 @@ void inthandler21(int *esp) {
   io_out8(PIC0_OCW2, 0x61);
   byte data = io_in8(PORT_KEYDAT);
 
-  if (keybuf.count < 32) {
-    keybuf.data[keybuf.tail] = data;
-    keybuf.count++;
-    keybuf.tail = (keybuf.tail += 1) % 32;
-  }
+  fifo8_push(&keybuf, data);
 }
 
 // PS/2マウスからの割り込み
