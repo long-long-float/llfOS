@@ -1,0 +1,13 @@
+--- tolset/z_tools/haribote/haribote.rul	2017-02-17 19:52:39.399952994 +0900
++++ tolset/z_tools/haribote/haribote.rul	2017-02-17 19:52:01.383919519 +0900
+@@ -8,8 +8,8 @@
+ 		.objファイル、.libファイルを記載 */
+ 	/* なお、このセクションはフルパスで書いてもよい。 */
+ 	/* 例：  c:/osask/gg00libc.lib;  */
+-	../z_tools/haribote/harilibc.lib;
+-	../z_tools/haribote/golibc.lib;
++	./tolset/z_tools/haribote/harilibc.lib;
++	./tolset/z_tools/haribote/golibc.lib;
+ 
+ label:
+ 	/* 必ずリンクしなければいけないラベルを指定 */
