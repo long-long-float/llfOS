@@ -32,6 +32,10 @@ int fifo8_pop(FIFO8 *fifo8) {
   }
 }
 
+int fifo8_head(FIFO8 *fifo8) {
+  return fifo8->buf[fifo8->head];
+}
+
 int fifo8_count(FIFO8 *fifo8) {
   return fifo8->size - fifo8->free;
 }

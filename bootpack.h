@@ -1,5 +1,10 @@
 typedef unsigned char byte;
 
+// boolean
+typedef _Bool bool;
+#define true  1
+#define false 0
+
 // asmhead.nas
 
 typedef struct {
@@ -123,5 +128,5 @@ typedef enum {
 void fifo8_init(FIFO8 *fifo8, int size, byte *buf);
 int fifo8_push(FIFO8 *fifo8, byte data);
 int fifo8_pop(FIFO8 *fifo8);
+int fifo8_head(FIFO8 *fifo8);
 int fifo8_count(FIFO8 *fifo8);
-

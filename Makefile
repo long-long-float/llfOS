@@ -69,5 +69,5 @@ run:
 	qemu-system-i386 -fda helloos.img
 
 clean:
-	rm *.bin *.lst *.gas *.obj
+	rm *.bin *.lst *.obj
 	rm llfos.sys bootpack.map bootpack.nas bootpack.bim bootpack.hrb helloos.img
