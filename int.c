@@ -1,8 +1,5 @@
 #include "bootpack.h"
 
-FIFO8 keybuf;
-FIFO8 mousebuf;
-
 void init_pic() {
   io_out8(PIC0_IMR,  0xff  ); /* 全ての割り込みを受け付けない */
   io_out8(PIC1_IMR,  0xff  ); /* 全ての割り込みを受け付けない */
@@ -19,23 +16,6 @@ void init_pic() {
 
   io_out8(PIC0_IMR,  0xfb  ); /* 11111011 PIC1以外は全て禁止 */
   io_out8(PIC1_IMR,  0xff  ); /* 11111111 全ての割り込みを受け付けない */
-}
-
-// PS/2キーボードからの割り込み
-void inthandler21(int *esp) {
-  io_out8(PIC0_OCW2, 0x61);
-  byte data = io_in8(PORT_KEYDAT);
-
-  fifo8_push(&keybuf, data);
-}
-
-// PS/2マウスからの割り込み
-void inthandler2c(int *esp) {
-  io_out8(PIC1_OCW2, 0x64); // スレーブ
-  io_out8(PIC0_OCW2, 0x62); // マスター
-  byte data = io_in8(PORT_KEYDAT);
-
-  fifo8_push(&mousebuf, data);
 }
 
 // PIC0からの不完全割り込み対策

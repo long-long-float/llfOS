@@ -4,9 +4,6 @@
 extern FIFO8 keybuf;
 extern FIFO8 mousebuf;
 
-void init_keyboard();
-void enable_mouse();
-
 void HariMain() {
   init_gdtidt();
   init_pic();
@@ -120,24 +117,3 @@ void HariMain() {
   }
 }
 
-void wait_KBC_sendready() {
-  while (1) {
-    if ((io_in8(PORT_KEYSTA) & KEYSTA_SEND_NOTREADY) == 0) {
-      break;
-    }
-  }
-}
-
-void init_keyboard() {
-  wait_KBC_sendready();
-  io_out8(PORT_KEYCMD, KEYCMD_WRITE_MODE);
-  wait_KBC_sendready();
-  io_out8(PORT_KEYDAT, KBC_MODE);
-}
-
-void enable_mouse() {
-  wait_KBC_sendready();
-  io_out8(PORT_KEYCMD, KEYCMD_SENDTO_MOUSE);
-  wait_KBC_sendready();
-  io_out8(PORT_KEYDAT, MOUSECMD_ENABLE);
-}

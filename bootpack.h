@@ -130,3 +130,15 @@ int fifo8_push(FIFO8 *fifo8, byte data);
 int fifo8_pop(FIFO8 *fifo8);
 int fifo8_head(FIFO8 *fifo8);
 int fifo8_count(FIFO8 *fifo8);
+
+// keyboard.c
+
+void wait_KBC_sendready();
+void init_keyboard();
+void inthandler21(int *esp);
+
+// mouse.c
+
+void enable_mouse();
+// PS/2マウスからの割り込み
+void inthandler2c(int *esp);
