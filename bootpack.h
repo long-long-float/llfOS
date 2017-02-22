@@ -32,6 +32,7 @@ void store_cr0(int cr0);
 void asm_inthandler21(void);
 void asm_inthandler27(void);
 void asm_inthandler2c(void);
+unsigned memtest_sub(unsigned start, unsigned end);
 
 // graphic.c
 
@@ -144,3 +145,27 @@ void inthandler21(int *esp);
 void enable_mouse();
 // PS/2マウスからの割り込み
 void inthandler2c(int *esp);
+
+// memory.c
+
+#define MEMORY_MAN_FREE_SIZE 4090
+#define MEMORY_MAN_ADDRESS   0x003c0000
+
+typedef struct {
+  unsigned address, size;
+} FreeInfo;
+
+typedef struct {
+  int free_count;     // FreeInfoの個数
+  int max_free_count; // free_countの最大値
+  int lost_size;      // 解放に失敗したサイズ
+  int lost_count;     // 解放に失敗した回数
+  FreeInfo frees[MEMORY_MAN_FREE_SIZE];
+} MemoryMan;
+
+unsigned memtest(unsigned start, unsigned end);
+void memory_man_init(MemoryMan *mm);
+unsigned memory_man_free_total(MemoryMan *mm);
+unsigned memory_man_alloc(MemoryMan *mm, unsigned size);
+bool memory_man_free(MemoryMan *mm, unsigned address, unsigned size);
+
