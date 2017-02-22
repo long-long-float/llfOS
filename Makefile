@@ -66,7 +66,7 @@ llfos.sys: asmhead.bin bootpack.hrb
 
 run:
 	make build
-	qemu-system-i386 -fda helloos.img
+	qemu-system-i386 -fda helloos.img -m 1G
 
 clean:
 	rm *.bin *.lst *.obj

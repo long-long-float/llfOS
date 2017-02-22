@@ -1,8 +1,14 @@
 #include "bootpack.h"
 #include <stdio.h>
 
+#define EFLAGS_AC_BIT     0x00040000
+#define CR0_CACHE_DISABLE 0x60000000
+
 extern FIFO8 keybuf;
 extern FIFO8 mousebuf;
+
+unsigned memtest(unsigned start, unsigned end);
+unsigned memtest_sub(unsigned start, unsigned end);
 
 void HariMain() {
   init_gdtidt();
@@ -35,6 +41,10 @@ void HariMain() {
 
   init_keyboard();
   enable_mouse();
+
+  int memsize = memtest(0x00400000, 0xbfffffff) / (1024 * 1024); // MB単位
+  sprintf(buf, "memory %dMB", memsize);
+  putfonts8_asc(vram, info->screenx, COLOR_WHITE, 0, info->screeny - FONT_HEIGHT, buf);
 
   bool received_0xfa = false;
   int mousex = info->screenx / 2, mousey = info->screeny / 2;
@@ -115,5 +125,37 @@ void HariMain() {
       io_stihlt();
     }
   }
+}
+
+unsigned memtest(unsigned start, unsigned end) {
+  bool flag486 = false;
+
+  // 386か486以降かの確認
+  unsigned eflag = io_load_eflags();
+  eflag |= EFLAGS_AC_BIT;
+  io_store_eflags(eflag);
+
+  eflag = io_load_eflags();
+  if (eflag & EFLAGS_AC_BIT) { // 386ではACが0になる
+    flag486 = true;
+  }
+  eflag &= ~EFLAGS_AC_BIT;
+  io_store_eflags(eflag);
+
+  if (flag486) {
+    unsigned cr0 = load_cr0();
+    cr0 |= CR0_CACHE_DISABLE; // ギャッシュを禁止
+    store_cr0(cr0);
+  }
+
+  unsigned res = memtest_sub(start, end);
+
+  if (flag486) {
+    unsigned cr0 = load_cr0();
+    cr0 &= ~CR0_CACHE_DISABLE; // ギャッシュを許可
+    store_cr0(cr0);
+  }
+
+  return res;
 }
 
