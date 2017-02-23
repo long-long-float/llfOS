@@ -103,7 +103,7 @@ void putblock8_8(byte *vram, int vxsize, int pxsize, int pysize, int px0, int py
     for (int x = 0; x < pxsize; x++) {
       byte c = buf[y * bxsize + x];
       int xx = px0 + x, yy = py0 + y;
-      if (c != COLOR_NONE && 0 <= xx && xx < vxsize && 0 <= yy /* && yy < vysize */) {
+      if (0 <= xx && xx < vxsize && 0 <= yy /* && yy < vysize */) {
         vram[yy * vxsize + xx] = c;
       }
     }

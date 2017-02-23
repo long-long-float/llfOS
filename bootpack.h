@@ -1,3 +1,5 @@
+#define NULL 0
+
 typedef unsigned char byte;
 
 // boolean
@@ -43,8 +45,6 @@ typedef enum {
   COLOR_BLACK     = 0,
   COLOR_LIGHT_BLUE = 4,
   COLOR_WHITE     = 7,
-
-  COLOR_NONE      = 255, // 透明
 } Color;
 
 void init_palette(void);
@@ -170,4 +170,34 @@ unsigned memory_man_alloc(MemoryMan *mm, unsigned size);
 bool memory_man_free(MemoryMan *mm, unsigned address, unsigned size);
 unsigned memory_man_alloc_4k(MemoryMan *mm, unsigned size);
 unsigned memory_man_free_4k(MemoryMan *mm, unsigned address, unsigned size);
+
+// sheet.c
+
+#define MAX_SHEET_NUM 256
+#define SHEET_FLAGS_USED 1
+
+typedef struct {
+  byte *buf;
+  int bwidth, bheight; // bufの幅、高さ
+  int vx0, vy0;        // vram上の座標
+  int color_inv;       // 透明色
+  int index;
+  int flags;
+} Sheet;
+
+typedef struct {
+  byte *vram;
+  int width, height;
+  int top_index;
+  Sheet *sheets[MAX_SHEET_NUM];
+  Sheet sheets0[MAX_SHEET_NUM];
+} SheetControl;
+
+SheetControl *sheet_control_init(MemoryMan *mm, byte *vram, int width, int height);
+Sheet *sheet_alloc(SheetControl *ctl);
+void sheet_init(Sheet *sheet, byte *buf, int width, int height, int color_inv);
+void sheet_updown(SheetControl *ctl, Sheet *sheet, int index);
+void sheet_refresh(SheetControl *ctl);
+void sheet_slide(SheetControl *ctl, Sheet *sheet, int vx0, int vy0);
+void sheet_free(SheetControl *ctl, Sheet *sheet);
 

@@ -59,7 +59,7 @@ unsigned memory_man_alloc(MemoryMan *mm, unsigned size){
       fi->size    -= size;
 
       if (fi->size == 0) {
-        // 一つづつずらす
+        // 一つずつずらす
         mm->free_count--;
         for (; i < mm->free_count; i++) {
           mm->frees[i] = mm->frees[i + 1];
@@ -110,7 +110,7 @@ bool memory_man_free(MemoryMan *mm, unsigned address, unsigned size) {
   }
 
   if (mm->free_count < MEMORY_MAN_FREE_SIZE) {
-    // 1つづつ後ろにずらす
+    // 1つずつ後ろにずらす
     for (int i = mm->free_count; i > index; i--) {
       mm->frees[i] = mm->frees[i - 1];
     }

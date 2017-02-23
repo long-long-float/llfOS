@@ -12,21 +12,49 @@ void HariMain() {
   init_palette();
 
   BootInfo* info = (BootInfo*)ADR_BOOTINFO;
+  MemoryMan *memman = (MemoryMan*)MEMORY_MAN_ADDRESS;
 
-  byte* vram = info->vram;
-
-  putfonts8_asc(vram, info->screenx, COLOR_WHITE, 0, 0, "Welcome to llfOS!");
+  int mousex = info->screenx / 2, mousey = info->screeny / 2;
 
   char buf[1024];
-  sprintf(buf, "screen %dx%d", info->screenx, info->screeny);
-  putfonts8_asc(vram, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT, buf);
 
-  byte mcursor[16 * 16];
-  init_mouse_cursor8(mcursor, COLOR_NONE);
+  // メモリ関連
+  int memsize = memtest(0x00400000, 0xbfffffff);
+
+  memory_man_init(memman);
+  memory_man_free(memman, 0x00001000, 0x0009e000);
+  memory_man_free(memman, 0x00400000, memsize - 0x00400000);
+
+  // シート関連
+  SheetControl *sheet_ctl = sheet_control_init(memman, info->vram, info->screenx, info->screeny);
+
+  Sheet *sheet_back  = sheet_alloc(sheet_ctl);
+  byte *buf_back = (byte*)memory_man_alloc_4k(memman, info->screenx * info->screeny);
+  sheet_init(sheet_back, buf_back, info->screenx, info->screeny, -1);
+  for (int i = 0; i < info->screenx * info->screeny; i++) buf_back[i] = -1;
+  sheet_slide(sheet_ctl, sheet_back, 0, 0);
+
+  byte buf_mouse[16 * 16];
+  Sheet *sheet_mouse = sheet_alloc(sheet_ctl);
+  sheet_init(sheet_mouse, buf_mouse, 16, 16, 99);
+  init_mouse_cursor8(buf_mouse, 99);
+  sheet_slide(sheet_ctl, sheet_mouse, mousex, mousey);
+
+  sheet_updown(sheet_ctl, sheet_back, 0);
+  sheet_updown(sheet_ctl, sheet_mouse, 1);
+
+  sprintf(buf, "sheet %d %d %d %d", sheet_ctl->width, sheet_ctl->height, sheet_ctl->top_index, sheet_ctl->sheets[0]->color_inv);
+  putfonts8_asc(info->vram, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT, buf);
+
+  putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, 0, "Welcome to llfOS!");
+
+  sprintf(buf, "screen %dx%d", info->screenx, info->screeny);
+  putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT, buf);
 
   io_out8(PIC0_IMR, 0xf9); // PIC1とキーボードを許可
   io_out8(PIC1_IMR, 0xef); // マウスを許可
 
+  // 入力バッファの初期化
   byte kbuf[32];
   fifo8_init(&keybuf, 32, kbuf);
 
@@ -36,18 +64,12 @@ void HariMain() {
   init_keyboard();
   enable_mouse();
 
-  int memsize = memtest(0x00400000, 0xbfffffff);
-  MemoryMan *memman = (MemoryMan*)MEMORY_MAN_ADDRESS;
-
-  memory_man_init(memman);
-  memory_man_free(memman, 0x00001000, 0x0009e000);
-  memory_man_free(memman, 0x00400000, memsize - 0x00400000);
-
   sprintf(buf, "memory %dMB, free %dKB", memsize / (1024 * 1024), memory_man_free_total(memman) / 1024);
-  putfonts8_asc(vram, info->screenx, COLOR_WHITE, 0, info->screeny - FONT_HEIGHT, buf);
+  putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, info->screeny - FONT_HEIGHT, buf);
 
   bool received_0xfa = false;
-  int mousex = info->screenx / 2, mousey = info->screeny / 2;
+
+  sheet_refresh(sheet_ctl);
 
   while (1) {
     // keybuf.dataを読み取っている間に割り込みが来たら困るので
@@ -60,11 +82,13 @@ void HariMain() {
 
         io_sti();
 
-        boxfill8(info->vram, info->screenx, COLOR_BLACK, 0, FONT_HEIGHT * 2, info->screenx, FONT_HEIGHT * 3);
+        boxfill8(buf_back, info->screenx, COLOR_BLACK, 0, FONT_HEIGHT * 2, info->screenx, FONT_HEIGHT * 3);
 
         char buf[20];
         sprintf(buf, "keyboard: %02X", data);
-        putfonts8_asc(info->vram, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT * 2, buf);
+        putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT * 2, buf);
+
+        sheet_refresh(sheet_ctl);
       } else {
         // マウスの処理
         if (!received_0xfa) {
@@ -94,8 +118,6 @@ void HariMain() {
             }
             dy = -dy;
 
-            boxfill8(info->vram, info->screenx, COLOR_BLACK, mousex, mousey, mousex + 16, mousey + 16);
-
             mousex += dx;
             mousey += dy;
 
@@ -104,7 +126,7 @@ void HariMain() {
             if (mousey < 0) mousey = 0;
             if (mousey >= info->screeny) mousey = info->screeny - 1;
 
-            boxfill8(info->vram, info->screenx, COLOR_BLACK, 0, FONT_HEIGHT * 3, info->screenx, FONT_HEIGHT * 4);
+            boxfill8(buf_back, info->screenx, COLOR_BLACK, 0, FONT_HEIGHT * 3, info->screenx, FONT_HEIGHT * 4);
 
             char buf[20];
             char l = (button & 0x01) ? 'L' : '.',
@@ -114,9 +136,11 @@ void HariMain() {
             buf[7] = l; // golibcのsprintfが%cに対応していなかったので
             buf[8] = c;
             buf[9] = r;
-            putfonts8_asc(info->vram, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT * 3, buf);
+            putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT * 3, buf);
 
-            putblock8_8(vram, info->screenx, 16, 16, mousex, mousey, mcursor, 16);
+            // putblock8_8(buf_mouse, info->screenx, 16, 16, mousex, mousey, mcursor, 16);
+
+            sheet_slide(sheet_ctl, sheet_mouse, mousex, mousey);
           }
         }
       }
