@@ -133,3 +133,11 @@ bool memory_man_free(MemoryMan *mm, unsigned address, unsigned size) {
   return false;
 }
 
+unsigned memory_man_alloc_4k(MemoryMan *mm, unsigned size) {
+  return memory_man_alloc(mm, (size + 0xfff) & 0xfffff000); // 4k単位で切り上げ
+}
+
+unsigned memory_man_free_4k(MemoryMan *mm, unsigned address, unsigned size) {
+  return memory_man_free(mm, address, (size + 0xfff) & 0xfffff000); // 4k単位で切り上げ
+}
+

@@ -168,4 +168,6 @@ void memory_man_init(MemoryMan *mm);
 unsigned memory_man_free_total(MemoryMan *mm);
 unsigned memory_man_alloc(MemoryMan *mm, unsigned size);
 bool memory_man_free(MemoryMan *mm, unsigned address, unsigned size);
+unsigned memory_man_alloc_4k(MemoryMan *mm, unsigned size);
+unsigned memory_man_free_4k(MemoryMan *mm, unsigned address, unsigned size);
 
