@@ -197,7 +197,12 @@ SheetControl *sheet_control_init(MemoryMan *mm, byte *vram, int width, int heigh
 Sheet *sheet_alloc(SheetControl *ctl);
 void sheet_init(Sheet *sheet, byte *buf, int width, int height, int color_inv);
 void sheet_updown(SheetControl *ctl, Sheet *sheet, int index);
-void sheet_refresh(SheetControl *ctl);
+void sheet_refresh(SheetControl *ctl, Sheet *sheet, int bx0, int by0, int bx1, int by1);
 void sheet_slide(SheetControl *ctl, Sheet *sheet, int vx0, int vy0);
 void sheet_free(SheetControl *ctl, Sheet *sheet);
+
+// logger.c
+
+void logger_mark_next_out();
+void logger_log(byte *vram, int width, const char *str);
 

@@ -1,4 +1,5 @@
 #include "bootpack.h"
+#include <stdio.h>
 
 SheetControl *sheet_control_init(MemoryMan *mm, byte *vram, int width, int height) {
   SheetControl *ctl = (SheetControl*)memory_man_alloc(mm, sizeof(SheetControl));
@@ -66,7 +67,7 @@ void sheet_updown(SheetControl *ctl, Sheet *sheet, int index) {
       }
       ctl->top_index--;
     }
-    sheet_refresh(ctl);
+    sheet_refresh(ctl, sheet, sheet->vx0, sheet->vy0, sheet->vx0 + sheet->bwidth, sheet->vy0 + sheet->bheight);
   } else if (index > old_index) {
     if (old_index >= 0) {
       sheet_lift_down(ctl, old_index, index);
@@ -76,16 +77,26 @@ void sheet_updown(SheetControl *ctl, Sheet *sheet, int index) {
       ctl->sheets[index] = sheet;
       ctl->top_index++;
     }
-    sheet_refresh(ctl);
+    sheet_refresh(ctl, sheet, sheet->vx0, sheet->vy0, sheet->vx0 + sheet->bwidth, sheet->vy0 + sheet->bheight);
   }
 }
 
-void sheet_refresh(SheetControl *ctl) {
+void sheet_refresh_sub(SheetControl *ctl, int vx0, int vy0, int vx1, int vy1) {
   for (int i = 0; i <= ctl->top_index; i++) {
     Sheet *sheet = ctl->sheets[i];
-    for (int y = 0; y < sheet->bheight; y++) {
+    int bx0 = vx0 - sheet->vx0,
+        by0 = vy0 - sheet->vy0,
+        bx1 = vx1 - sheet->vx0,
+        by1 = vy1 - sheet->vy0;
+
+    if (bx0 < 0) bx0 = 0;
+    if (bx1 > sheet->bwidth) bx1 = sheet->bwidth;
+    if (by0 < 0) by0 = 0;
+    if (by1 > sheet->bheight) by1 = sheet->bheight;
+
+    for (int y = by0; y < by1; y++) {
       int vy = sheet->vy0 + y;
-      for (int x = 0; x < sheet->bwidth; x++) {
+      for (int x = bx0; x < bx1; x++) {
         int vx = sheet->vx0 + x;
         byte c = sheet->buf[y * sheet->bwidth + x];
         if (c != sheet->color_inv) {
@@ -96,10 +107,20 @@ void sheet_refresh(SheetControl *ctl) {
   }
 }
 
+void sheet_refresh(SheetControl *ctl, Sheet *sheet, int bx0, int by0, int bx1, int by1) {
+  if (sheet->index >= 0) {
+    sheet_refresh_sub(ctl, sheet->vx0 + bx0, sheet->vy0 + by0, sheet->vx0 + bx1, sheet->vx0 + by1);
+  }
+}
+
 void sheet_slide(SheetControl *ctl, Sheet *sheet, int vx0, int vy0) {
+  int old_vx0 = sheet->vx0, old_vy0 = sheet->vy0;
   sheet->vx0 = vx0;
   sheet->vy0 = vy0;
-  if (sheet->index >= 0) sheet_refresh(ctl);
+  if (sheet->index >= 0) {
+    sheet_refresh_sub(ctl, old_vx0, old_vy0, old_vx0 + sheet->bwidth, old_vy0 + sheet->bheight);
+    sheet_refresh_sub(ctl, vx0, vy0, vx0 + sheet->bwidth, vy0 + sheet->bheight);
+  }
 }
 
 void sheet_free(SheetControl *ctl, Sheet *sheet) {

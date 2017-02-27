@@ -69,7 +69,7 @@ void HariMain() {
 
   bool received_0xfa = false;
 
-  sheet_refresh(sheet_ctl);
+  sheet_refresh(sheet_ctl, sheet_back, 0, 0, info->screenx, info->screeny);
 
   while (1) {
     // keybuf.dataを読み取っている間に割り込みが来たら困るので
@@ -88,7 +88,7 @@ void HariMain() {
         sprintf(buf, "keyboard: %02X", data);
         putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT * 2, buf);
 
-        sheet_refresh(sheet_ctl);
+        sheet_refresh(sheet_ctl, sheet_back, 0, 0, info->screenx, FONT_HEIGHT * 4);
       } else {
         // マウスの処理
         if (!received_0xfa) {
@@ -138,8 +138,7 @@ void HariMain() {
             buf[9] = r;
             putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT * 3, buf);
 
-            // putblock8_8(buf_mouse, info->screenx, 16, 16, mousex, mousey, mcursor, 16);
-
+            sheet_refresh(sheet_ctl, sheet_back, 0, 0, info->screenx, FONT_HEIGHT * 5);
             sheet_slide(sheet_ctl, sheet_mouse, mousex, mousey);
           }
         }
