@@ -176,7 +176,12 @@ unsigned memory_man_free_4k(MemoryMan *mm, unsigned address, unsigned size);
 #define MAX_SHEET_NUM 256
 #define SHEET_FLAGS_USED 1
 
+struct _SheetControl;
+typedef struct _SheetControl SheetControl;
+
 typedef struct {
+  SheetControl *ctl;
+
   byte *buf;
   int bwidth, bheight; // bufの幅、高さ
   int vx0, vy0;        // vram上の座標
@@ -185,21 +190,21 @@ typedef struct {
   int flags;
 } Sheet;
 
-typedef struct {
+struct _SheetControl {
   byte *vram;
   int width, height;
   int top_index;
   Sheet *sheets[MAX_SHEET_NUM];
   Sheet sheets0[MAX_SHEET_NUM];
-} SheetControl;
+};
 
 SheetControl *sheet_control_init(MemoryMan *mm, byte *vram, int width, int height);
 Sheet *sheet_alloc(SheetControl *ctl);
 void sheet_init(Sheet *sheet, byte *buf, int width, int height, int color_inv);
-void sheet_updown(SheetControl *ctl, Sheet *sheet, int index);
-void sheet_refresh(SheetControl *ctl, Sheet *sheet, int bx0, int by0, int bx1, int by1);
-void sheet_slide(SheetControl *ctl, Sheet *sheet, int vx0, int vy0);
-void sheet_free(SheetControl *ctl, Sheet *sheet);
+void sheet_updown(Sheet *sheet, int index);
+void sheet_refresh(Sheet *sheet, int bx0, int by0, int bx1, int by1);
+void sheet_slide(Sheet *sheet, int vx0, int vy0);
+void sheet_free(Sheet *sheet);
 
 // logger.c
 

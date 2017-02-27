@@ -11,6 +11,7 @@ SheetControl *sheet_control_init(MemoryMan *mm, byte *vram, int width, int heigh
   ctl->top_index = -1;
   for (int i = 0; i < MAX_SHEET_NUM; i++) {
     ctl->sheets0[i].flags = 0;
+    ctl->sheets0[i].ctl = ctl;
   }
 
   return ctl;
@@ -49,7 +50,9 @@ void sheet_lift_down(SheetControl *ctl, int index, int dest_index) {
   }
 }
 
-void sheet_updown(SheetControl *ctl, Sheet *sheet, int index) {
+void sheet_updown(Sheet *sheet, int index) {
+  SheetControl *ctl = sheet->ctl;
+
   int old_index = sheet->index;
 
   if (index > ctl->top_index + 1) index = ctl->top_index + 1;
@@ -67,7 +70,7 @@ void sheet_updown(SheetControl *ctl, Sheet *sheet, int index) {
       }
       ctl->top_index--;
     }
-    sheet_refresh(ctl, sheet, sheet->vx0, sheet->vy0, sheet->vx0 + sheet->bwidth, sheet->vy0 + sheet->bheight);
+    sheet_refresh(sheet, sheet->vx0, sheet->vy0, sheet->vx0 + sheet->bwidth, sheet->vy0 + sheet->bheight);
   } else if (index > old_index) {
     if (old_index >= 0) {
       sheet_lift_down(ctl, old_index, index);
@@ -77,7 +80,7 @@ void sheet_updown(SheetControl *ctl, Sheet *sheet, int index) {
       ctl->sheets[index] = sheet;
       ctl->top_index++;
     }
-    sheet_refresh(ctl, sheet, sheet->vx0, sheet->vy0, sheet->vx0 + sheet->bwidth, sheet->vy0 + sheet->bheight);
+    sheet_refresh(sheet, sheet->vx0, sheet->vy0, sheet->vx0 + sheet->bwidth, sheet->vy0 + sheet->bheight);
   }
 }
 
@@ -99,7 +102,7 @@ void sheet_refresh_sub(SheetControl *ctl, int vx0, int vy0, int vx1, int vy1) {
       for (int x = bx0; x < bx1; x++) {
         int vx = sheet->vx0 + x;
         byte c = sheet->buf[y * sheet->bwidth + x];
-        if (c != sheet->color_inv) {
+        if (0 <= vx && vx < ctl->width && 0 <= vy && vy < ctl->height && c != sheet->color_inv) {
           ctl->vram[vy * ctl->width + vx] = c;
         }
       }
@@ -107,13 +110,17 @@ void sheet_refresh_sub(SheetControl *ctl, int vx0, int vy0, int vx1, int vy1) {
   }
 }
 
-void sheet_refresh(SheetControl *ctl, Sheet *sheet, int bx0, int by0, int bx1, int by1) {
+void sheet_refresh(Sheet *sheet, int bx0, int by0, int bx1, int by1) {
+  SheetControl *ctl = sheet->ctl;
+
   if (sheet->index >= 0) {
     sheet_refresh_sub(ctl, sheet->vx0 + bx0, sheet->vy0 + by0, sheet->vx0 + bx1, sheet->vx0 + by1);
   }
 }
 
-void sheet_slide(SheetControl *ctl, Sheet *sheet, int vx0, int vy0) {
+void sheet_slide(Sheet *sheet, int vx0, int vy0) {
+  SheetControl *ctl = sheet->ctl;
+
   int old_vx0 = sheet->vx0, old_vy0 = sheet->vy0;
   sheet->vx0 = vx0;
   sheet->vy0 = vy0;
@@ -123,8 +130,10 @@ void sheet_slide(SheetControl *ctl, Sheet *sheet, int vx0, int vy0) {
   }
 }
 
-void sheet_free(SheetControl *ctl, Sheet *sheet) {
-  if (sheet->index >= 0) sheet_updown(ctl, sheet, -1);
+void sheet_free(Sheet *sheet) {
+  SheetControl *ctl = sheet->ctl;
+
+  if (sheet->index >= 0) sheet_updown(sheet, -1);
 
   sheet->flags = 0;
 }

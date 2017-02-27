@@ -32,16 +32,16 @@ void HariMain() {
   byte *buf_back = (byte*)memory_man_alloc_4k(memman, info->screenx * info->screeny);
   sheet_init(sheet_back, buf_back, info->screenx, info->screeny, -1);
   for (int i = 0; i < info->screenx * info->screeny; i++) buf_back[i] = -1;
-  sheet_slide(sheet_ctl, sheet_back, 0, 0);
+  sheet_slide(sheet_back, 0, 0);
 
   byte buf_mouse[16 * 16];
   Sheet *sheet_mouse = sheet_alloc(sheet_ctl);
   sheet_init(sheet_mouse, buf_mouse, 16, 16, 99);
   init_mouse_cursor8(buf_mouse, 99);
-  sheet_slide(sheet_ctl, sheet_mouse, mousex, mousey);
+  sheet_slide(sheet_mouse, mousex, mousey);
 
-  sheet_updown(sheet_ctl, sheet_back, 0);
-  sheet_updown(sheet_ctl, sheet_mouse, 1);
+  sheet_updown(sheet_back, 0);
+  sheet_updown(sheet_mouse, 1);
 
   sprintf(buf, "sheet %d %d %d %d", sheet_ctl->width, sheet_ctl->height, sheet_ctl->top_index, sheet_ctl->sheets[0]->color_inv);
   putfonts8_asc(info->vram, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT, buf);
@@ -69,7 +69,7 @@ void HariMain() {
 
   bool received_0xfa = false;
 
-  sheet_refresh(sheet_ctl, sheet_back, 0, 0, info->screenx, info->screeny);
+  sheet_refresh(sheet_back, 0, 0, info->screenx, info->screeny);
 
   while (1) {
     // keybuf.dataを読み取っている間に割り込みが来たら困るので
@@ -88,7 +88,7 @@ void HariMain() {
         sprintf(buf, "keyboard: %02X", data);
         putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT * 2, buf);
 
-        sheet_refresh(sheet_ctl, sheet_back, 0, 0, info->screenx, FONT_HEIGHT * 4);
+        sheet_refresh(sheet_back, 0, 0, info->screenx, FONT_HEIGHT * 4);
       } else {
         // マウスの処理
         if (!received_0xfa) {
@@ -138,8 +138,8 @@ void HariMain() {
             buf[9] = r;
             putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT * 3, buf);
 
-            sheet_refresh(sheet_ctl, sheet_back, 0, 0, info->screenx, FONT_HEIGHT * 5);
-            sheet_slide(sheet_ctl, sheet_mouse, mousex, mousey);
+            sheet_refresh(sheet_back, 0, 0, info->screenx, FONT_HEIGHT * 5);
+            sheet_slide(sheet_mouse, mousex, mousey);
           }
         }
       }
