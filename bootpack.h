@@ -45,6 +45,9 @@ typedef enum {
   COLOR_BLACK     = 0,
   COLOR_LIGHT_BLUE = 4,
   COLOR_WHITE     = 7,
+  COLOR_LIGHT_GRAY = 8,
+  COLOR_DARK_BLUE = 12,
+  COLOR_DARK_GRAY = 15,
 } Color;
 
 void init_palette(void);

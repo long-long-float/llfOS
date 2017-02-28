@@ -4,6 +4,8 @@
 extern FIFO8 keybuf;
 extern FIFO8 mousebuf;
 
+void make_window8(byte *buf, int xsize, int ysize, char *title);
+
 void HariMain() {
   init_gdtidt();
   init_pic();
@@ -40,8 +42,18 @@ void HariMain() {
   init_mouse_cursor8(buf_mouse, 99);
   sheet_slide(sheet_mouse, mousex, mousey);
 
+  const wwidth = 160, wheight = 68;
+  Sheet *sheet_win = sheet_alloc(sheet_ctl);
+  byte *buf_win = (byte*)memory_man_alloc_4k(memman, wwidth * wheight);
+  sheet_init(sheet_win, buf_win, wwidth, wheight, -1);
+  make_window8(buf_win, wwidth, wheight, "window");
+  putfonts8_asc(buf_win, wwidth, COLOR_BLACK, 24, 28, "Welcome to");
+  putfonts8_asc(buf_win, wwidth, COLOR_BLACK, 24, 44, "  llfOS!");
+  sheet_slide(sheet_win, 80, 72);
+
   sheet_updown(sheet_back, 0);
-  sheet_updown(sheet_mouse, 1);
+  sheet_updown(sheet_win, 1);
+  sheet_updown(sheet_mouse, 2);
 
   sprintf(buf, "sheet %d %d %d %d", sheet_ctl->width, sheet_ctl->height, sheet_ctl->top_index, sheet_ctl->sheets[0]->color_inv);
   putfonts8_asc(info->vram, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT, buf);
@@ -71,7 +83,16 @@ void HariMain() {
 
   sheet_refresh(sheet_back, 0, 0, info->screenx, info->screeny);
 
+  int count = 0;
+
   while (1) {
+    count++;
+
+    boxfill8(buf_win, wwidth, COLOR_LIGHT_GRAY, 40, 28, 119, 43);
+    sprintf(buf, "%010d", count);
+    putfonts8_asc(buf_win, wwidth, COLOR_BLACK, 40, 28, buf);
+    sheet_refresh(sheet_win, 40, 28, 120, 44);
+
     // keybuf.dataを読み取っている間に割り込みが来たら困るので
     io_cli();
 
@@ -145,8 +166,55 @@ void HariMain() {
       }
     } else {
       // STIの後に割り込みが来るとキー情報があるのにHLTしてしまうので一緒に実行する
-      io_stihlt();
+      // io_stihlt();
+      io_sti();
     }
   }
 }
 
+void make_window8(byte *buf, int xsize, int ysize, char *title) {
+  static char closebtn[14][16] = {
+    "OOOOOOOOOOOOOOO@",
+    "OQQQQQQQQQQQQQ$@",
+    "OQQQQQQQQQQQQQ$@",
+    "OQQQ@@QQQQ@@QQ$@",
+    "OQQQQ@@QQ@@QQQ$@",
+    "OQQQQQ@@@@QQQQ$@",
+    "OQQQQQQ@@QQQQQ$@",
+    "OQQQQQ@@@@QQQQ$@",
+    "OQQQQ@@QQ@@QQQ$@",
+    "OQQQ@@QQQQ@@QQ$@",
+    "OQQQQQQQQQQQQQ$@",
+    "OQQQQQQQQQQQQQ$@",
+    "O$$$$$$$$$$$$$$@",
+    "@@@@@@@@@@@@@@@@"
+  };
+
+  boxfill8(buf , xsize , COLOR_LIGHT_GRAY , 0         , 0         , xsize - 1 , 0        );
+  boxfill8(buf , xsize , COLOR_WHITE      , 1         , 1         , xsize - 2 , 1        );
+  boxfill8(buf , xsize , COLOR_LIGHT_GRAY , 0         , 0         , 0         , ysize - 1);
+  boxfill8(buf , xsize , COLOR_WHITE      , 1         , 1         , 1         , ysize - 2);
+  boxfill8(buf , xsize , COLOR_DARK_GRAY  , xsize - 2 , 1         , xsize - 2 , ysize - 2);
+  boxfill8(buf , xsize , COLOR_BLACK      , xsize - 1 , 0         , xsize - 1 , ysize - 1);
+  boxfill8(buf , xsize , COLOR_LIGHT_GRAY , 2         , 2         , xsize - 3 , ysize - 3);
+  boxfill8(buf , xsize , COLOR_DARK_BLUE  , 3         , 3         , xsize - 4 , 20       );
+  boxfill8(buf , xsize , COLOR_DARK_GRAY  , 1         , ysize - 2 , xsize - 2 , ysize - 2);
+  boxfill8(buf , xsize , COLOR_BLACK      , 0         , ysize - 1 , xsize - 1 , ysize - 1);
+  putfonts8_asc(buf, xsize, COLOR_WHITE, 24, 4, title);
+
+  for (int y = 0; y < 14; y++) {
+    for (int x = 0; x < 16; x++) {
+      char c = closebtn[y][x];
+      if (c == '@') {
+        c = COLOR_BLACK;
+      } else if (c == '$') {
+        c = COLOR_DARK_GRAY;
+      } else if (c == 'Q') {
+        c = COLOR_LIGHT_GRAY;
+      } else {
+        c = COLOR_WHITE;
+      }
+      buf[(5 + y) * xsize + (xsize - 21 + x)] = c;
+    }
+  }
+}
