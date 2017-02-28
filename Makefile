@@ -1,4 +1,4 @@
-OBJS_BOOTPATH = bootpack.obj naskfunc.obj hankaku.obj graphic.obj dsctbl.obj int.obj fifo8.obj keyboard.obj mouse.obj memory.obj sheet.obj logger.obj
+OBJS_BOOTPATH = bootpack.obj naskfunc.obj hankaku.obj graphic.obj dsctbl.obj int.obj fifo8.obj keyboard.obj mouse.obj memory.obj sheet.obj logger.obj timer.obj
 
 TOOLPATH = wine ./tolset/z_tools/
 INCPATH  = ./tolset/z_tools/haribote/

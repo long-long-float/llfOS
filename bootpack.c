@@ -3,6 +3,7 @@
 
 extern FIFO8 keybuf;
 extern FIFO8 mousebuf;
+extern TimerControl timerctl;
 
 void make_window8(byte *buf, int xsize, int ysize, char *title);
 
@@ -10,6 +11,8 @@ void HariMain() {
   init_gdtidt();
   init_pic();
   io_sti();
+
+  init_pit();
 
   init_palette();
 
@@ -42,7 +45,7 @@ void HariMain() {
   init_mouse_cursor8(buf_mouse, 99);
   sheet_slide(sheet_mouse, mousex, mousey);
 
-  const wwidth = 160, wheight = 68;
+  const int wwidth = 160, wheight = 68;
   Sheet *sheet_win = sheet_alloc(sheet_ctl);
   byte *buf_win = (byte*)memory_man_alloc_4k(memman, wwidth * wheight);
   sheet_init(sheet_win, buf_win, wwidth, wheight, -1);
@@ -55,6 +58,12 @@ void HariMain() {
   sheet_updown(sheet_win, 1);
   sheet_updown(sheet_mouse, 2);
 
+  // タイマー関連
+  FIFO8 timer_fifo;
+  byte timer_fifo_buf[8];
+  fifo8_init(&timer_fifo, 8, timer_fifo_buf);
+  init_timer_control(100, &timer_fifo, 1);
+
   sprintf(buf, "sheet %d %d %d %d", sheet_ctl->width, sheet_ctl->height, sheet_ctl->top_index, sheet_ctl->sheets[0]->color_inv);
   putfonts8_asc(info->vram, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT, buf);
 
@@ -63,7 +72,7 @@ void HariMain() {
   sprintf(buf, "screen %dx%d", info->screenx, info->screeny);
   putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT, buf);
 
-  io_out8(PIC0_IMR, 0xf9); // PIC1とキーボードを許可
+  io_out8(PIC0_IMR, 0xf8); // タイマーとPIC1,キーボードを許可
   io_out8(PIC1_IMR, 0xef); // マウスを許可
 
   // 入力バッファの初期化
@@ -86,17 +95,10 @@ void HariMain() {
   int count = 0;
 
   while (1) {
-    count++;
-
-    boxfill8(buf_win, wwidth, COLOR_LIGHT_GRAY, 40, 28, 119, 43);
-    sprintf(buf, "%010d", count);
-    putfonts8_asc(buf_win, wwidth, COLOR_BLACK, 40, 28, buf);
-    sheet_refresh(sheet_win, 40, 28, 120, 44);
-
     // keybuf.dataを読み取っている間に割り込みが来たら困るので
     io_cli();
 
-    if (fifo8_count(&keybuf) > 0 || fifo8_count(&mousebuf) > 0) {
+    if (fifo8_count(&keybuf) > 0 || fifo8_count(&mousebuf) > 0 || fifo8_count(&timer_fifo) > 0) {
       if (fifo8_count(&keybuf) > 0) {
         // キーボードの処理
         int data = fifo8_pop(&keybuf);
@@ -110,7 +112,7 @@ void HariMain() {
         putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT * 2, buf);
 
         sheet_refresh(sheet_back, 0, 0, info->screenx, FONT_HEIGHT * 4);
-      } else {
+      } else if (fifo8_count(&mousebuf) > 0) {
         // マウスの処理
         if (!received_0xfa) {
           int data = fifo8_pop(&mousebuf);
@@ -163,6 +165,18 @@ void HariMain() {
             sheet_slide(sheet_mouse, mousex, mousey);
           }
         }
+      } else if (fifo8_count(&timer_fifo) > 0) {
+        byte data = fifo8_pop(&timer_fifo);
+
+        io_sti();
+
+        count++;
+        timerctl.timeout = 100;
+
+        boxfill8(buf_win, wwidth, COLOR_LIGHT_GRAY, 40, 28, 119, 43);
+        sprintf(buf, "%010d", count);
+        putfonts8_asc(buf_win, wwidth, COLOR_BLACK, 40, 28, buf);
+        sheet_refresh(sheet_win, 40, 28, 120, 44);
       }
     } else {
       // STIの後に割り込みが来るとキー情報があるのにHLTしてしまうので一緒に実行する

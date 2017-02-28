@@ -31,9 +31,10 @@ void load_gdtr(int limit, void *addr);
 void load_idtr(int limit, void *addr);
 int load_cr0();
 void store_cr0(int cr0);
-void asm_inthandler21(void);
-void asm_inthandler27(void);
-void asm_inthandler2c(void);
+void asm_inthandler20();
+void asm_inthandler21();
+void asm_inthandler27();
+void asm_inthandler2c();
 unsigned memtest_sub(unsigned start, unsigned end);
 
 // graphic.c
@@ -213,5 +214,18 @@ void sheet_free(Sheet *sheet);
 // logger.c
 
 void logger_mark_next_out();
-void logger_log(byte *vram, int width, const char *str);
+void logger_log(byte *vram, int width, char *str);
+
+// timer.c
+
+typedef struct {
+  unsigned count;
+  unsigned timeout;
+  FIFO8 *fifo;
+  byte data;
+} TimerControl;
+
+void init_pit();
+void inthandler20(int *esp);
+void init_timer_control(unsigned timeout, FIFO8 *fifo, byte data);
 

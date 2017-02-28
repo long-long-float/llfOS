@@ -20,7 +20,7 @@ unsigned memtest(unsigned start, unsigned end) {
 
   if (flag486) {
     unsigned cr0 = load_cr0();
-    cr0 |= CR0_CACHE_DISABLE; // ギャッシュを禁止
+    cr0 |= CR0_CACHE_DISABLE; // キャッシュを禁止
     store_cr0(cr0);
   }
 
@@ -28,7 +28,7 @@ unsigned memtest(unsigned start, unsigned end) {
 
   if (flag486) {
     unsigned cr0 = load_cr0();
-    cr0 &= ~CR0_CACHE_DISABLE; // ギャッシュを許可
+    cr0 &= ~CR0_CACHE_DISABLE; // キャッシュを許可
     store_cr0(cr0);
   }
 
