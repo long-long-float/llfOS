@@ -195,6 +195,7 @@ typedef struct {
 
 struct _SheetControl {
   byte *vram;
+  byte *map;
   int width, height;
   int top_index;
   Sheet *sheets[MAX_SHEET_NUM];
