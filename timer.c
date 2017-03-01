@@ -35,7 +35,7 @@ Timer *timer_alloc() {
   return NULL;
 }
 
-void timer_init(Timer *timer, FIFO8 *fifo, byte data) {
+void timer_init(Timer *timer, FIFO32 *fifo, byte data) {
   timer->fifo = fifo;
   timer->data = data;
 }
@@ -79,15 +79,14 @@ void inthandler20(int *esp) {
 
   int i;
   for (i = 0; i < timerctl.using_index; i++) {
-    // FIXME: timerctl.timers[i]ではなくtimerを使うとなぜか動かなくなる
-    Timer *timer = &timerctl.timers[i];
+    Timer *timer = timerctl.timers[i];
 
-    if (timerctl.timers[i]->timeout > timerctl.count) {
+    if (timer->timeout > timerctl.count) {
       break;
     }
     // タイムアウト
-    timerctl.timers[i]->flags = TIMER_FLAGS_ALLOC;
-    fifo8_push(timerctl.timers[i]->fifo, timerctl.timers[i]->data);
+    timer->flags = TIMER_FLAGS_ALLOC;
+    fifo32_push(timer->fifo, timer->data);
   }
 
   timerctl.using_index -= i;

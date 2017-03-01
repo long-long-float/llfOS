@@ -138,15 +138,34 @@ int fifo8_pop(FIFO8 *fifo8);
 int fifo8_head(FIFO8 *fifo8);
 int fifo8_count(FIFO8 *fifo8);
 
+// fifo32.c
+
+typedef struct {
+  int *buf;
+  int  size, free;
+  int  head, tail;
+  int  flags;
+} FIFO32;
+
+typedef enum {
+  FIFO32_OVERFLOW = 1,
+} FIFO32Flags;
+
+void fifo32_init(FIFO32 *fifo32, int size, int *buf);
+int fifo32_push(FIFO32 *fifo32, int data);
+int fifo32_pop(FIFO32 *fifo32);
+int fifo32_head(FIFO32 *fifo32);
+int fifo32_count(FIFO32 *fifo32);
+
 // keyboard.c
 
 void wait_KBC_sendready();
-void init_keyboard();
+void init_keyboard(FIFO32 *fifo32, int data0);
 void inthandler21(int *esp);
 
 // mouse.c
 
-void enable_mouse();
+void enable_mouse(FIFO32 *fifo32, int data0);
 // PS/2マウスからの割り込み
 void inthandler2c(int *esp);
 
@@ -223,7 +242,7 @@ void logger_log(byte *vram, int width, char *str);
 typedef struct {
   unsigned timeout;
   unsigned flags;
-  FIFO8 *fifo;
+  FIFO32 *fifo;
   unsigned data;
 } Timer;
 
@@ -237,7 +256,7 @@ typedef struct {
 
 void init_pit();
 Timer *timer_alloc();
-void timer_init(Timer *timer, FIFO8 *fifo, byte data);
+void timer_init(Timer *timer, FIFO32 *fifo, byte data);
 void timer_free(Timer *timer);
 void timer_settime(Timer *timer, unsigned timeout);
 void inthandler20(int *esp);

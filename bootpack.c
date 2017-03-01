@@ -1,8 +1,11 @@
 #include "bootpack.h"
 #include <stdio.h>
 
-extern FIFO8 keybuf;
-extern FIFO8 mousebuf;
+#define FIFO_KEYBORD_BEGIN 256
+#define FIFO_KEYBORD_END   511
+#define FIFO_MOUSE_BEGIN   (FIFO_KEYBORD_END+1)
+#define FIFO_MOUSE_END     767
+
 extern TimerControl timerctl;
 
 void make_window8(byte *buf, int xsize, int ysize, char *title);
@@ -22,6 +25,10 @@ void HariMain() {
   int mousex = info->screenx / 2, mousey = info->screeny / 2;
 
   char buf[1024];
+
+  int fifo_buf[128];
+  FIFO32 fifo;
+  fifo32_init(&fifo, 128, fifo_buf);
 
   // メモリ関連
   int memsize = memtest(0x00400000, 0xbfffffff);
@@ -59,11 +66,8 @@ void HariMain() {
   sheet_updown(sheet_mouse, 2);
 
   // タイマー関連
-  FIFO8 timer_fifo;
-  byte timer_fifo_buf[8];
-  fifo8_init(&timer_fifo, 8, timer_fifo_buf);
   Timer *timer = timer_alloc();
-  timer_init(timer, &timer_fifo, 1);
+  timer_init(timer, &fifo, 1);
   timer_settime(timer, 100);
 
   sprintf(buf, "sheet %d %d %d %d", sheet_ctl->width, sheet_ctl->height, sheet_ctl->top_index, sheet_ctl->sheets[0]->color_inv);
@@ -77,20 +81,15 @@ void HariMain() {
   io_out8(PIC0_IMR, 0xf8); // タイマーとPIC1,キーボードを許可
   io_out8(PIC1_IMR, 0xef); // マウスを許可
 
-  // 入力バッファの初期化
-  byte kbuf[32];
-  fifo8_init(&keybuf, 32, kbuf);
-
-  byte mbuf[128];
-  fifo8_init(&mousebuf, 32, mbuf);
-
-  init_keyboard();
-  enable_mouse();
+  init_keyboard(&fifo, FIFO_KEYBORD_BEGIN);
+  enable_mouse(&fifo, FIFO_MOUSE_BEGIN);
 
   sprintf(buf, "memory %dMB, free %dKB", memsize / (1024 * 1024), memory_man_free_total(memman) / 1024);
   putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, info->screeny - FONT_HEIGHT, buf);
 
   bool received_0xfa = false;
+  int mouse_info[3];
+  int mouse_info_count = 0;
 
   sheet_refresh(sheet_back, 0, 0, info->screenx, info->screeny);
 
@@ -100,12 +99,13 @@ void HariMain() {
     // keybuf.dataを読み取っている間に割り込みが来たら困るので
     io_cli();
 
-    if (fifo8_count(&keybuf) > 0 || fifo8_count(&mousebuf) > 0 || fifo8_count(&timer_fifo) > 0) {
-      if (fifo8_count(&keybuf) > 0) {
-        // キーボードの処理
-        int data = fifo8_pop(&keybuf);
+    if (fifo32_count(&fifo) > 0) {
+      int data = fifo32_pop(&fifo);
+      io_sti();
 
-        io_sti();
+      if (FIFO_KEYBORD_BEGIN <= data && data <= FIFO_KEYBORD_END) {
+        // キーボードの処理
+        data -= FIFO_KEYBORD_BEGIN;
 
         boxfill8(buf_back, info->screenx, COLOR_BLACK, 0, FONT_HEIGHT * 2, info->screenx, FONT_HEIGHT * 3);
 
@@ -114,64 +114,59 @@ void HariMain() {
         putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT * 2, buf);
 
         sheet_refresh(sheet_back, 0, 0, info->screenx, FONT_HEIGHT * 4);
-      } else if (fifo8_count(&mousebuf) > 0) {
+      } else if (FIFO_MOUSE_BEGIN <= data && data <= FIFO_MOUSE_END) {
         // マウスの処理
+        data -= FIFO_MOUSE_BEGIN;
         if (!received_0xfa) {
-          int data = fifo8_pop(&mousebuf);
           if (data == 0xfa) {
-            io_sti();
-
             received_0xfa = true;
           }
         } else {
-          if (!(fifo8_head(&mousebuf) & 0x08)) {
-            fifo8_pop(&mousebuf); // エラーなので読みとばす
-            io_sti();
-          } else if (fifo8_count(&mousebuf) >= 3) {
-            int mouse_info[3];
-            for (int i = 0; i < 3; i++) mouse_info[i] = fifo8_pop(&mousebuf);
+          if (mouse_info_count == 0 && !(data & 0x08)) {
+            // エラーなので読みとばす
+          } else {
+            mouse_info[mouse_info_count] = data;
+            mouse_info_count++;
 
-            io_sti();
+            if (mouse_info_count >= 3) {
+              mouse_info_count = 0;
 
-            int button = mouse_info[0] & 0x07;
-            int dx = mouse_info[1], dy = mouse_info[2];
-            if (mouse_info[0] & 0x10) {
-              dx |= 0xffffff00;
+              int button = mouse_info[0] & 0x07;
+              int dx = mouse_info[1], dy = mouse_info[2];
+              if (mouse_info[0] & 0x10) {
+                dx |= 0xffffff00;
+              }
+              if (mouse_info[0] & 0x20) {
+                dy |= 0xffffff00;
+              }
+              dy = -dy;
+
+              mousex += dx;
+              mousey += dy;
+
+              if (mousex < 0) mousex = 0;
+              if (mousex >= info->screenx) mousex = info->screenx - 1;
+              if (mousey < 0) mousey = 0;
+              if (mousey >= info->screeny) mousey = info->screeny - 1;
+
+              boxfill8(buf_back, info->screenx, COLOR_BLACK, 0, FONT_HEIGHT * 3, info->screenx, FONT_HEIGHT * 4);
+
+              char buf[20];
+              char l = (button & 0x01) ? 'L' : '.',
+                   r = (button & 0x02) ? 'R' : '.',
+                   c = (button & 0x04) ? 'C' : '.';
+              sprintf(buf, "mouse: ... (%d, %d)", mousex, mousey);
+              buf[7] = l; // golibcのsprintfが%cに対応していなかったので
+              buf[8] = c;
+              buf[9] = r;
+              putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT * 3, buf);
+
+              sheet_refresh(sheet_back, 0, 0, info->screenx, FONT_HEIGHT * 5);
+              sheet_slide(sheet_mouse, mousex, mousey);
             }
-            if (mouse_info[0] & 0x20) {
-              dy |= 0xffffff00;
-            }
-            dy = -dy;
-
-            mousex += dx;
-            mousey += dy;
-
-            if (mousex < 0) mousex = 0;
-            if (mousex >= info->screenx) mousex = info->screenx - 1;
-            if (mousey < 0) mousey = 0;
-            if (mousey >= info->screeny) mousey = info->screeny - 1;
-
-            boxfill8(buf_back, info->screenx, COLOR_BLACK, 0, FONT_HEIGHT * 3, info->screenx, FONT_HEIGHT * 4);
-
-            char buf[20];
-            char l = (button & 0x01) ? 'L' : '.',
-                 r = (button & 0x02) ? 'R' : '.',
-                 c = (button & 0x04) ? 'C' : '.';
-            sprintf(buf, "mouse: ... (%d, %d)", mousex, mousey);
-            buf[7] = l; // golibcのsprintfが%cに対応していなかったので
-            buf[8] = c;
-            buf[9] = r;
-            putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT * 3, buf);
-
-            sheet_refresh(sheet_back, 0, 0, info->screenx, FONT_HEIGHT * 5);
-            sheet_slide(sheet_mouse, mousex, mousey);
           }
         }
-      } else if (fifo8_count(&timer_fifo) > 0) {
-        byte data = fifo8_pop(&timer_fifo);
-
-        io_sti();
-
+      } else { // timer
         count++;
 
         timer_settime(timer, 100);
