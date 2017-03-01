@@ -218,14 +218,26 @@ void logger_log(byte *vram, int width, char *str);
 
 // timer.c
 
+#define MAX_TIMERS 500
+
+typedef struct {
+  unsigned timeout;
+  unsigned flags;
+  FIFO8 *fifo;
+  unsigned data;
+} Timer;
+
 typedef struct {
   unsigned count;
-  unsigned timeout;
-  FIFO8 *fifo;
-  byte data;
+  unsigned next_timeout;
+  unsigned using_index;
+  Timer *timers[MAX_TIMERS];
+  Timer timers0[MAX_TIMERS];
 } TimerControl;
 
 void init_pit();
+Timer *timer_alloc();
+void timer_init(Timer *timer, FIFO8 *fifo, byte data);
+void timer_free(Timer *timer);
+void timer_settime(Timer *timer, unsigned timeout);
 void inthandler20(int *esp);
-void init_timer_control(unsigned timeout, FIFO8 *fifo, byte data);
-

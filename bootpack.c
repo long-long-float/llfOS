@@ -62,7 +62,9 @@ void HariMain() {
   FIFO8 timer_fifo;
   byte timer_fifo_buf[8];
   fifo8_init(&timer_fifo, 8, timer_fifo_buf);
-  init_timer_control(100, &timer_fifo, 1);
+  Timer *timer = timer_alloc();
+  timer_init(timer, &timer_fifo, 1);
+  timer_settime(timer, 100);
 
   sprintf(buf, "sheet %d %d %d %d", sheet_ctl->width, sheet_ctl->height, sheet_ctl->top_index, sheet_ctl->sheets[0]->color_inv);
   putfonts8_asc(info->vram, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT, buf);
@@ -171,10 +173,11 @@ void HariMain() {
         io_sti();
 
         count++;
-        timerctl.timeout = 100;
+
+        timer_settime(timer, 100);
 
         boxfill8(buf_win, wwidth, COLOR_LIGHT_GRAY, 40, 28, 119, 43);
-        sprintf(buf, "%010d", count);
+        sprintf(buf, "%d", count);
         putfonts8_asc(buf_win, wwidth, COLOR_BLACK, 40, 28, buf);
         sheet_refresh(sheet_win, 40, 28, 120, 44);
       }
