@@ -8,20 +8,70 @@ VMODE EQU 0x0ff2   ; 色数に関する情報。何ビットカラーか？
 SCRNX EQU 0x0ff4   ; 解像度のX
 SCRNY EQU 0x0ff6   ; 解像度のY
 VRAM EQU 0x0ff8   ; グラフィックバッファの開始番地
+; VBEMODE EQU 0x107   ; 1024 x 768
+; VBEMODE EQU 0x105 ; 1280 x 1024
+VBEMODE EQU 0x101 ; 640 x 480
+
+[INSTRSET "i486p"]        ; 486の命令まで使いたいという記述
 
   ORG 0xc200 ; = 0x8000 + 0x4200 にこのプログラムが読み込まれる
 
+  ;
+  ; 画面モードの設定
+  ;
+
+  ; VBEに対応しているか
+  MOV AX, 0x9000
+  MOV ES, AX
+  MOV DI, 0
+  MOV AX, 0x4f00
+  INT 0x10
+  CMP AX, 0x004f
+  JNE screen320
+
+  ; VBE2.0以上か
+  MOV AX, [ES:DI+4]
+  CMP AX, 0x0200
+  JB screen320
+
+  ; VBEMODEが使えるかどうか
+  MOV CX, VBEMODE
+  MOV AX, 0x4f01
+  INT 0x10
+  CMP AX, 0x004f
+  JNE screen320
+
+  CMP BYTE [ES:DI+0x19], 8 ; 8bit?
+  JNE screen320
+  CMP BYTE [ES:DI+0x1b], 4 ; パレットモード?
+  JNE screen320
+  MOV AX, [ES:DI]
+  AND AX, 0x0080           ; 0x4000を足せる?
+  JZ  screen320
+
+  MOV BX, VBEMODE + 0x4000
+  MOV AX, 0x4f02
+  INT 0x10
+  MOV BYTE [VMODE], 8
+  MOV AX, [ES:DI+0x12]
+  MOV [SCRNX], AX
+  MOV AX, [ES:DI+0x14]
+  MOV [SCRNY], AX
+  MOV EAX, [ES:DI+0x28]
+  MOV [VRAM], EAX
+  JMP keystatus
+
+screen320: ; 希望の画面モードに対応していない
   ; VGAグラフィック
   MOV AL, 0x13
   MOV AH, 0x00
   INT 0x10
-
-  ; 画面モード
   MOV BYTE [VMODE], 8
   MOV WORD [SCRNX], 320
   MOV WORD [SCRNY], 200
   MOV DWORD [VRAM], 0x00a0000
 
+keystatus:
   ; キーボードの状態を取得
   MOV AH, 0x02
   INT 0x16
@@ -51,7 +101,6 @@ VRAM EQU 0x0ff8   ; グラフィックバッファの開始番地
 
 ; プロテクトモード移行
 
-[INSTRSET "i486p"]        ; 486の命令まで使いたいという記述
 
     LGDT  [GDTR0]      ; 暫定GDTを設定
     MOV    EAX,CR0
