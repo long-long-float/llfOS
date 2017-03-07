@@ -172,6 +172,10 @@ void HariMain() {
 
               sheet_refresh(sheet_back, 0, 0, info->screenx, FONT_HEIGHT * 5);
               sheet_slide(sheet_mouse, mousex, mousey);
+
+              if (l == 'L' && sheet_in(sheet_win, mousex, mousey)) {
+                sheet_slide(sheet_win, sheet_win->vx0 + dx, sheet_win->vy0 + dy);
+              }
             }
           }
         }

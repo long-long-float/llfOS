@@ -229,6 +229,7 @@ void sheet_updown(Sheet *sheet, int index);
 void sheet_refresh(Sheet *sheet, int bx0, int by0, int bx1, int by1);
 void sheet_slide(Sheet *sheet, int vx0, int vy0);
 void sheet_free(Sheet *sheet);
+bool sheet_in(Sheet *sheet, int x, int y);
 
 // logger.c
 

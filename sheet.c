@@ -177,3 +177,7 @@ void sheet_free(Sheet *sheet) {
   sheet->flags = 0;
 }
 
+bool sheet_in(Sheet *sheet, int x, int y) {
+  return sheet->vx0 <= x && x < sheet->vx0 + sheet->bwidth &&
+         sheet->vy0 <= y && y < sheet->vy0 + sheet->bheight;
+}
