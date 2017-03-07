@@ -239,18 +239,20 @@ void logger_log(byte *vram, int width, char *str);
 
 #define MAX_TIMERS 500
 
-typedef struct {
+typedef struct _Timer {
   unsigned timeout;
   unsigned flags;
   FIFO32 *fifo;
   unsigned data;
+
+  struct _Timer *next;
 } Timer;
 
 typedef struct {
   unsigned count;
   unsigned next_timeout;
-  unsigned using_index;
-  Timer *timers[MAX_TIMERS];
+
+  Timer *timer_head;
   Timer timers0[MAX_TIMERS];
 } TimerControl;
 

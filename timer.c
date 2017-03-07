@@ -19,10 +19,16 @@ void init_pit() {
 
   timerctl.count = 0;
   timerctl.next_timeout = MAX_TIMEOUT;
-  timerctl.using_index = 0;
   for (int i = 0; i < MAX_TIMERS; i++) {
     timerctl.timers0[i].flags = 0;
   }
+
+  // 番兵
+  Timer *stop = timer_alloc();
+  stop->timeout = MAX_TIMEOUT;
+  stop->flags   = TIMER_FLAGS_USED;
+  stop->next    = NULL;
+  timerctl.timer_head = stop;
 }
 
 Timer *timer_alloc() {
@@ -38,6 +44,7 @@ Timer *timer_alloc() {
 void timer_init(Timer *timer, FIFO32 *fifo, byte data) {
   timer->fifo = fifo;
   timer->data = data;
+  timer->next = NULL;
 }
 
 void timer_free(Timer *timer) {
@@ -51,20 +58,25 @@ void timer_settime(Timer *timer, unsigned timeout) {
   int eflags = io_load_eflags();
   io_cli();
 
-  int index;
-  for (index = 0; index < timerctl.using_index; index++) {
-    if (timerctl.timers[index]->timeout >= timer->timeout) {
+  Timer *current = timerctl.timer_head, *prev = NULL;
+  while (current) {
+    if (current->timeout >= timer->timeout) {
       break;
     }
+    prev = current;
+    current = current->next;
   }
 
-  for (int j = timerctl.using_index; j > index; j++) {
-    timerctl.timers[j] = timerctl.timers[j - 1];
+  if (prev) {
+    prev->next = timer;
+    timer->next = current;
+  } else {
+    Timer *head = timerctl.timer_head;
+    timerctl.timer_head = timer;
+    timer->next = head;
   }
-  timerctl.using_index++;
 
-  timerctl.timers[index] = timer;
-  timerctl.next_timeout = timerctl.timers[0]->timeout;
+  timerctl.next_timeout = timerctl.timer_head->timeout;
 
   io_store_eflags(eflags);
 }
@@ -78,27 +90,18 @@ void inthandler20(int *esp) {
   }
 
   int i;
-  for (i = 0; i < timerctl.using_index; i++) {
-    Timer *timer = timerctl.timers[i];
-
-    if (timer->timeout > timerctl.count) {
+  Timer *current = timerctl.timer_head;
+  for (; current ; current = current->next) {
+    if (current->timeout > timerctl.count) {
       break;
     }
     // タイムアウト
-    timer->flags = TIMER_FLAGS_ALLOC;
-    fifo32_push(timer->fifo, timer->data);
+    current->flags = TIMER_FLAGS_ALLOC;
+    fifo32_push(current->fifo, current->data);
   }
 
-  timerctl.using_index -= i;
-  for (int j = 0; j < timerctl.using_index; j++) {
-    timerctl.timers[j] = timerctl.timers[i + j];
-  }
+  timerctl.timer_head = current;
 
-  if (timerctl.using_index > 0) {
-    timerctl.next_timeout = timerctl.timers[0]->timeout;
-  } else {
-    timerctl.next_timeout = MAX_TIMEOUT;
-  }
+  timerctl.next_timeout = timerctl.timer_head;
 }
-
 
