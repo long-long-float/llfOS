@@ -93,6 +93,15 @@ void HariMain() {
 
   sheet_refresh(sheet_back, 0, 0, info->screenx, info->screeny);
 
+  static char KEY_TABLE[0x54] = {
+    0,   0,   '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '^', 0,   0,
+    'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '@', '[', 0,   0,   'A', 'S',
+    'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', ':', 0,   0,   ']', 'Z', 'X', 'C', 'V',
+    'B', 'N', 'M', ',', '.', '/', 0,   '*', 0,   ' ', 0,   0,   0,   0,   0,   0,
+    0,   0,   0,   0,   0,   0,   0,   '7', '8', '9', '-', '4', '5', '6', '+', '1',
+    '2', '3', '0', '.'
+  };
+
   int count = 0;
 
   while (1) {
@@ -109,8 +118,8 @@ void HariMain() {
 
         boxfill8(buf_back, info->screenx, COLOR_BLACK, 0, FONT_HEIGHT * 2, info->screenx, FONT_HEIGHT * 3);
 
-        char buf[20];
-        sprintf(buf, "keyboard: %02X", data);
+        char buf[] = "keyboard: .";
+        buf[10] = KEY_TABLE[data];
         putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT * 2, buf);
 
         sheet_refresh(sheet_back, 0, 0, info->screenx, FONT_HEIGHT * 4);
@@ -178,8 +187,7 @@ void HariMain() {
       }
     } else {
       // STIの後に割り込みが来るとキー情報があるのにHLTしてしまうので一緒に実行する
-      // io_stihlt();
-      io_sti();
+      io_stihlt();
     }
   }
 }
