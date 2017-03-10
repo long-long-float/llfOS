@@ -29,6 +29,8 @@ int io_load_eflags();
 void io_store_eflags(int eflags);
 void load_gdtr(int limit, void *addr);
 void load_idtr(int limit, void *addr);
+void load_tr(int tr);
+void farjump(int eip, int cs);
 int load_cr0();
 void store_cr0(int cr0);
 void asm_inthandler20();
@@ -69,6 +71,7 @@ void putblock8_8(byte *vram, int vxsize, int pxsize, int pysize, int px0, int py
 #define LIMIT_BOTPAK  0x0007ffff
 #define AR_DATA32_RW  0x4092
 #define AR_CODE32_ER  0x409a
+#define AR_TSS32      0x0089
 #define AR_INTGATE32  0x008e
 
 typedef struct {
@@ -263,3 +266,18 @@ void timer_init(Timer *timer, FIFO32 *fifo, byte data);
 void timer_free(Timer *timer);
 void timer_settime(Timer *timer, unsigned timeout);
 void inthandler20(int *esp);
+
+// task.c
+
+typedef struct {
+  // タスクの設定
+  int backlink, esp0, ss0, esp1, ss1, esp2, ss2, cr3;
+  // 32bitレジスタ
+  int eip, eflags, eax, ecx, edx, ebx, esp, ebp, esi, edi;
+  // 16bitレジスタ
+  int es, cs, ss, ds, fs, gs;
+  // タスクの設定
+  int ldtr, iomap;
+} TSS32; // task status segment
+
+

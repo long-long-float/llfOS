@@ -10,6 +10,10 @@ extern TimerControl timerctl;
 
 void make_window8(byte *buf, int xsize, int ysize, char *title);
 
+void task_b_main() {
+  while(1){ io_hlt(); }
+}
+
 void HariMain() {
   init_gdtidt();
   init_pic();
@@ -29,6 +33,36 @@ void HariMain() {
   int fifo_buf[128];
   FIFO32 fifo;
   fifo32_init(&fifo, 128, fifo_buf);
+
+  // タスク関連
+  TSS32 tss_a, tss_b;
+  tss_a.ldtr = 0;
+  tss_a.iomap = 0x40000000;
+
+  tss_b.ldtr = 0;
+  tss_b.iomap = 0x40000000;
+  tss_b.eip = (int)&task_b_main;
+  tss_b.eflags = 0x00000202;
+	tss_b.eax = 0;
+	tss_b.ecx = 0;
+	tss_b.edx = 0;
+	tss_b.ebx = 0;
+	tss_b.esp = memory_man_alloc_4k(memman, 64 * 1024) + 64 * 1024;
+	tss_b.ebp = 0;
+	tss_b.esi = 0;
+	tss_b.edi = 0;
+	tss_b.es = 1 * 8;
+	tss_b.cs = 2 * 8;
+	tss_b.ss = 1 * 8;
+	tss_b.ds = 1 * 8;
+	tss_b.fs = 1 * 8;
+	tss_b.gs = 1 * 8;
+
+  SegmentDescriptor *gdt = (SegmentDescriptor*)ADR_GDT;
+  set_segmdesc(&gdt[3], 103, &tss_a, AR_TSS32);
+  set_segmdesc(&gdt[4], 103, &tss_b, AR_TSS32);
+
+  load_tr(3 << 3);
 
   // メモリ関連
   int memsize = memtest(0x00400000, 0xbfffffff);
@@ -123,6 +157,9 @@ void HariMain() {
         putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT * 2, buf);
 
         sheet_refresh(sheet_back, 0, 0, info->screenx, FONT_HEIGHT * 4);
+
+        // task switch
+        farjump(0, 4 << 3);
       } else if (FIFO_MOUSE_BEGIN <= data && data <= FIFO_MOUSE_END) {
         // マウスの処理
         data -= FIFO_MOUSE_BEGIN;
