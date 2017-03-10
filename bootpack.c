@@ -18,7 +18,7 @@ void putfonts8_asc_sht(Sheet *sht, int x, int y, int c, int b, char *s, int l) {
   return;
 }
 
-void task_b_main() {
+void task_b_main(Sheet *sht_back) {
   FIFO32 fifo;
   int fifobuf[128];
 
@@ -27,16 +27,10 @@ void task_b_main() {
   timer_init(timer_ts, &fifo, 1);
   timer_settime(timer_ts, 2);
 
-  Sheet *sht_back = (Sheet*) *((int *) 0x0fec);
-
   int count = 0;
 
   while (1) {
     count++;
-
-    char s[128];
-    sprintf(s, "%10d", count);
-    putfonts8_asc_sht(sht_back, 0, 144, COLOR_WHITE, COLOR_BLACK, s, 30);
 
     io_cli();
 
@@ -47,6 +41,10 @@ void task_b_main() {
 
       io_sti();
       if (i == 1) {
+        char s[128];
+        sprintf(s, "%10d", count);
+        putfonts8_asc_sht(sht_back, 0, 144, COLOR_WHITE, COLOR_BLACK, s, 128);
+
         farjump(0, 3 * 8);
         timer_settime(timer_ts, 2);
       }
@@ -74,36 +72,6 @@ void HariMain() {
   FIFO32 fifo;
   fifo32_init(&fifo, 128, fifo_buf);
 
-  // タスク関連
-  TSS32 tss_a, tss_b;
-  tss_a.ldtr = 0;
-  tss_a.iomap = 0x40000000;
-
-  tss_b.ldtr = 0;
-  tss_b.iomap = 0x40000000;
-  tss_b.eip = (int)&task_b_main;
-  tss_b.eflags = 0x00000202;
-	tss_b.eax = 0;
-	tss_b.ecx = 0;
-	tss_b.edx = 0;
-	tss_b.ebx = 0;
-	tss_b.esp = memory_man_alloc_4k(memman, 64 * 1024) + 64 * 1024;
-	tss_b.ebp = 0;
-	tss_b.esi = 0;
-	tss_b.edi = 0;
-	tss_b.es = 1 * 8;
-	tss_b.cs = 2 * 8;
-	tss_b.ss = 1 * 8;
-	tss_b.ds = 1 * 8;
-	tss_b.fs = 1 * 8;
-	tss_b.gs = 1 * 8;
-
-  SegmentDescriptor *gdt = (SegmentDescriptor*)ADR_GDT;
-  set_segmdesc(&gdt[3], 103, &tss_a, AR_TSS32);
-  set_segmdesc(&gdt[4], 103, &tss_b, AR_TSS32);
-
-  load_tr(3 << 3);
-
   // メモリ関連
   int memsize = memtest(0x00400000, 0xbfffffff);
 
@@ -114,13 +82,11 @@ void HariMain() {
   // シート関連
   SheetControl *sheet_ctl = sheet_control_init(memman, info->vram, info->screenx, info->screeny);
 
-  Sheet *sheet_back  = sheet_alloc(sheet_ctl);
+  Sheet *sheet_back = sheet_alloc(sheet_ctl);
   byte *buf_back = (byte*)memory_man_alloc_4k(memman, info->screenx * info->screeny);
   sheet_init(sheet_back, buf_back, info->screenx, info->screeny, -1);
   for (int i = 0; i < info->screenx * info->screeny; i++) buf_back[i] = -1;
   sheet_slide(sheet_back, 0, 0);
-
-  *((int*)0x0fec) = (int) sheet_back;
 
   byte buf_mouse[16 * 16];
   Sheet *sheet_mouse = sheet_alloc(sheet_ctl);
@@ -140,6 +106,38 @@ void HariMain() {
   sheet_updown(sheet_back, 0);
   sheet_updown(sheet_win, 1);
   sheet_updown(sheet_mouse, 2);
+
+  // タスク関連
+  TSS32 tss_a, tss_b;
+  tss_a.ldtr = 0;
+  tss_a.iomap = 0x40000000;
+
+  tss_b.ldtr = 0;
+  tss_b.iomap = 0x40000000;
+  tss_b.eip = (int)&task_b_main;
+  tss_b.eflags = 0x00000202;
+  tss_b.eax = 0;
+  tss_b.ecx = 0;
+  tss_b.edx = 0;
+  tss_b.ebx = 0;
+  // task_b_mainに引数を渡している、ということにするために8を引く
+  tss_b.esp = memory_man_alloc_4k(memman, 64 * 1024) + 64 * 1024 - 8;
+  *((int*)(tss_b.esp + 4)) = (int)sheet_back;
+  tss_b.ebp = 0;
+  tss_b.esi = 0;
+  tss_b.edi = 0;
+  tss_b.es = 1 * 8;
+  tss_b.cs = 2 * 8;
+  tss_b.ss = 1 * 8;
+  tss_b.ds = 1 * 8;
+  tss_b.fs = 1 * 8;
+  tss_b.gs = 1 * 8;
+
+  SegmentDescriptor *gdt = (SegmentDescriptor*)ADR_GDT;
+  set_segmdesc(&gdt[3], 103, &tss_a, AR_TSS32);
+  set_segmdesc(&gdt[4], 103, &tss_b, AR_TSS32);
+
+  load_tr(3 << 3);
 
   // タイマー関連
   Timer *timer = timer_alloc();
