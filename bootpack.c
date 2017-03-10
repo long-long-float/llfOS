@@ -10,8 +10,48 @@ extern TimerControl timerctl;
 
 void make_window8(byte *buf, int xsize, int ysize, char *title);
 
+void putfonts8_asc_sht(Sheet *sht, int x, int y, int c, int b, char *s, int l) {
+  boxfill8(sht->buf, sht->bwidth, b, x, y, x + l * 8 - 1, y + 15);
+  putfonts8_asc(sht->buf, sht->bwidth, c, x, y, s);
+  sheet_refresh(sht, x, y, x + l * 8, y + 16);
+
+  return;
+}
+
 void task_b_main() {
-  while(1){ io_hlt(); }
+  FIFO32 fifo;
+  int fifobuf[128];
+
+  fifo32_init(&fifo, 128, fifobuf);
+  Timer *timer_ts = timer_alloc();
+  timer_init(timer_ts, &fifo, 1);
+  timer_settime(timer_ts, 2);
+
+  Sheet *sht_back = (Sheet*) *((int *) 0x0fec);
+
+  int count = 0;
+
+  while (1) {
+    count++;
+
+    char s[128];
+    sprintf(s, "%10d", count);
+    putfonts8_asc_sht(sht_back, 0, 144, COLOR_WHITE, COLOR_BLACK, s, 30);
+
+    io_cli();
+
+    if (fifo32_count(&fifo) == 0) {
+      io_sti();
+    } else {
+      int i = fifo32_pop(&fifo);
+
+      io_sti();
+      if (i == 1) {
+        farjump(0, 3 * 8);
+        timer_settime(timer_ts, 2);
+      }
+    }
+  }
 }
 
 void HariMain() {
@@ -80,6 +120,8 @@ void HariMain() {
   for (int i = 0; i < info->screenx * info->screeny; i++) buf_back[i] = -1;
   sheet_slide(sheet_back, 0, 0);
 
+  *((int*)0x0fec) = (int) sheet_back;
+
   byte buf_mouse[16 * 16];
   Sheet *sheet_mouse = sheet_alloc(sheet_ctl);
   sheet_init(sheet_mouse, buf_mouse, 16, 16, 99);
@@ -103,6 +145,10 @@ void HariMain() {
   Timer *timer = timer_alloc();
   timer_init(timer, &fifo, 1);
   timer_settime(timer, 100);
+
+  Timer *task_timer = timer_alloc();
+  timer_init(task_timer, &fifo, 2);
+  timer_settime(task_timer, 2);
 
   sprintf(buf, "sheet %d %d %d %d", sheet_ctl->width, sheet_ctl->height, sheet_ctl->top_index, sheet_ctl->sheets[0]->color_inv);
   putfonts8_asc(info->vram, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT, buf);
@@ -157,9 +203,6 @@ void HariMain() {
         putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT * 2, buf);
 
         sheet_refresh(sheet_back, 0, 0, info->screenx, FONT_HEIGHT * 4);
-
-        // task switch
-        farjump(0, 4 << 3);
       } else if (FIFO_MOUSE_BEGIN <= data && data <= FIFO_MOUSE_END) {
         // マウスの処理
         data -= FIFO_MOUSE_BEGIN;
@@ -216,7 +259,7 @@ void HariMain() {
             }
           }
         }
-      } else { // timer
+      } else if (data == 1) { // timer
         count++;
 
         timer_settime(timer, 100);
@@ -225,6 +268,9 @@ void HariMain() {
         sprintf(buf, "%d", count);
         putfonts8_asc(buf_win, wwidth, COLOR_BLACK, 40, 28, buf);
         sheet_refresh(sheet_win, 40, 28, 120, 44);
+      } else if (data == 2) {
+        farjump(0, 4 << 3);
+        timer_settime(task_timer, 2);
       }
     } else {
       // STIの後に割り込みが来るとキー情報があるのにHLTしてしまうので一緒に実行する

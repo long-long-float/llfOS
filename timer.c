@@ -89,7 +89,6 @@ void inthandler20(int *esp) {
     return;
   }
 
-  int i;
   Timer *current = timerctl.timer_head;
   for (; current ; current = current->next) {
     if (current->timeout > timerctl.count) {
@@ -102,6 +101,6 @@ void inthandler20(int *esp) {
 
   timerctl.timer_head = current;
 
-  timerctl.next_timeout = timerctl.timer_head;
+  timerctl.next_timeout = timerctl.timer_head->timeout;
 }
 
