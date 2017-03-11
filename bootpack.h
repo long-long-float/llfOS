@@ -148,13 +148,16 @@ typedef struct {
   int  size, free;
   int  head, tail;
   int  flags;
+
+  // sleepしたタスクをrunする用
+  struct _Task *task;
 } FIFO32;
 
 typedef enum {
   FIFO32_OVERFLOW = 1,
 } FIFO32Flags;
 
-void fifo32_init(FIFO32 *fifo32, int size, int *buf);
+void fifo32_init(FIFO32 *fifo32, int size, int *buf, struct _Task *task);
 int fifo32_push(FIFO32 *fifo32, int data);
 int fifo32_pop(FIFO32 *fifo32);
 int fifo32_head(FIFO32 *fifo32);
@@ -272,6 +275,9 @@ void inthandler20(int *esp);
 #define MAX_TASK_NUM 1000
 #define TASK_GDT0    3
 
+#define TASK_FLAGS_ALLOC 1
+#define TASK_FLAGS_USED  2
+
 typedef struct {
   // タスクの設定
   int backlink, esp0, ss0, esp1, ss1, esp2, ss2, cr3;
@@ -283,7 +289,7 @@ typedef struct {
   int ldtr, iomap;
 } TSS32; // task status segment
 
-typedef struct {
+typedef struct _Task {
   int gdt_number, flags;
   TSS32 tss;
 } Task;
@@ -299,3 +305,4 @@ Task *task_init(MemoryMan *mm);
 Task *task_alloc();
 void task_run(Task *task);
 void task_switch();
+void task_sleep(Task *task);

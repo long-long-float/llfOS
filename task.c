@@ -1,8 +1,5 @@
 #include "bootpack.h"
 
-#define TASK_FLAGS_ALLOC 1
-#define TASK_FLAGS_USED  2
-
 #define TASK_SWITCH_INTERVAL 2
 
 Timer *task_timer;
@@ -20,7 +17,7 @@ Task *task_init(MemoryMan *mm) {
   }
 
   Task *task = task_alloc();
-  task->flags = TASK_FLAGS_ALLOC;
+  task->flags = TASK_FLAGS_USED;
   task_control->running_num = 1;
   task_control->current_task = 0;
   task_control->tasks[0] = task;
@@ -60,9 +57,11 @@ Task *task_alloc() {
 }
 
 void task_run(Task *task) {
-  task->flags = TASK_FLAGS_USED;
-  task_control->tasks[task_control->running_num] = task;
-  task_control->running_num++;
+  if (task->flags != TASK_FLAGS_USED) {
+    task->flags = TASK_FLAGS_USED;
+    task_control->tasks[task_control->running_num] = task;
+    task_control->running_num++;
+  }
 }
 
 void task_switch() {
@@ -77,4 +76,32 @@ void task_switch() {
   }
 }
 
+void task_sleep(Task *task) {
+  if (task->flags == TASK_FLAGS_USED) {
+    bool is_current_task = task == task_control->tasks[task_control->current_task];
+
+    int index;
+    for (index = 0; index < task_control->running_num; index++) {
+      if (task_control->tasks[index] == task) break;
+    }
+
+    task_control->running_num--;
+    if (index < task_control->current_task) {
+      task_control->current_task--;
+    }
+
+    for (; index < task_control->running_num; index++) {
+      task_control->tasks[index] = task_control->tasks[index + 1];
+    }
+
+    task->flags = TASK_FLAGS_ALLOC;
+
+    if (is_current_task) {
+      if (task_control->current_task >= task_control->running_num) {
+        task_control->current_task = 0;
+      }
+      farjump(0, task_control->tasks[task_control->current_task]->gdt_number);
+    }
+  }
+}
 

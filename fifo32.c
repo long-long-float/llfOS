@@ -1,12 +1,13 @@
 #include "bootpack.h"
 
-void fifo32_init(FIFO32 *fifo32, int size, int *buf) {
+void fifo32_init(FIFO32 *fifo32, int size, int *buf, Task *task) {
   fifo32->size = size;
   fifo32->buf  = buf;
   fifo32->free = size;
   fifo32->flags = 0;
   fifo32->head = 0;
   fifo32->tail = 0;
+  fifo32->task = task;
 }
 
 int fifo32_push(FIFO32 *fifo32, int data) {
@@ -14,6 +15,11 @@ int fifo32_push(FIFO32 *fifo32, int data) {
     fifo32->buf[fifo32->tail] = data;
     fifo32->free--;
     fifo32->tail = (fifo32->tail + 1) % fifo32->size;
+
+    if (fifo32->task && fifo32->flags != TASK_FLAGS_USED) {
+      task_run(fifo32->task);
+    }
+
     return 0;
   } else {
     fifo32->flags |= FIFO32_OVERFLOW;

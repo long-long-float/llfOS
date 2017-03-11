@@ -24,7 +24,7 @@ void task_b_main(Sheet *sht_back) {
 
   char s[128];
 
-  fifo32_init(&fifo, 128, fifobuf);
+  fifo32_init(&fifo, 128, fifobuf, NULL);
   Timer *timer_ts = timer_alloc();
   timer_init(timer_ts, &fifo, 1);
   timer_settime(timer_ts, 10);
@@ -69,7 +69,7 @@ void HariMain() {
 
   int fifo_buf[128];
   FIFO32 fifo;
-  fifo32_init(&fifo, 128, fifo_buf);
+  fifo32_init(&fifo, 128, fifo_buf, NULL);
 
   // メモリ関連
   int memsize = memtest(0x00400000, 0xbfffffff);
@@ -108,6 +108,7 @@ void HariMain() {
 
   // タスク関連
   Task *task_a = task_init(memman);
+  fifo.task = task_a;
 
   Task *task_b = task_alloc();
 
@@ -133,8 +134,6 @@ void HariMain() {
   putfonts8_asc(info->vram, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT, buf);
 
   putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, 0, "Welcome to llfOS!");
-
-  extern TaskControl *task_control;
 
   sprintf(buf, "screen %dx%d", info->screenx, info->screeny);
   putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT, buf);
@@ -251,8 +250,9 @@ void HariMain() {
         sheet_refresh(sheet_win, 40, 28, 120, 44);
       }
     } else {
-      // STIの後に割り込みが来るとキー情報があるのにHLTしてしまうので一緒に実行する
-      io_stihlt();
+      // task_sleep中に割り込みが来たら困るのでsleepから復帰したらフラグを戻す(task bの方は別の割り込みレジスタになるので問題なく割り込みが来る)
+      task_sleep(task_a);
+      io_sti();
     }
   }
 }
