@@ -10,6 +10,8 @@
 
 TimerControl timerctl;
 
+extern Timer *task_timer;
+
 void init_pit() {
   int interval = 11932;
 
@@ -89,6 +91,8 @@ void inthandler20(int *esp) {
     return;
   }
 
+  bool task_switch_flag = false;
+
   Timer *current = timerctl.timer_head;
   for (; current ; current = current->next) {
     if (current->timeout > timerctl.count) {
@@ -96,11 +100,19 @@ void inthandler20(int *esp) {
     }
     // タイムアウト
     current->flags = TIMER_FLAGS_ALLOC;
-    fifo32_push(current->fifo, current->data);
+    if (current == task_timer) {
+      task_switch_flag = true;
+    } else {
+      fifo32_push(current->fifo, current->data);
+    }
   }
 
   timerctl.timer_head = current;
 
   timerctl.next_timeout = timerctl.timer_head->timeout;
+
+  if (task_switch_flag) {
+    task_switch();
+  }
 }
 

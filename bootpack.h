@@ -280,4 +280,6 @@ typedef struct {
   int ldtr, iomap;
 } TSS32; // task status segment
 
+void task_init();
+void task_switch();
 

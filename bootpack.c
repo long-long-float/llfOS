@@ -22,10 +22,12 @@ void task_b_main(Sheet *sht_back) {
   FIFO32 fifo;
   int fifobuf[128];
 
+  char s[128];
+
   fifo32_init(&fifo, 128, fifobuf);
   Timer *timer_ts = timer_alloc();
   timer_init(timer_ts, &fifo, 1);
-  timer_settime(timer_ts, 2);
+  timer_settime(timer_ts, 10);
 
   int count = 0;
 
@@ -41,12 +43,9 @@ void task_b_main(Sheet *sht_back) {
 
       io_sti();
       if (i == 1) {
-        char s[128];
         sprintf(s, "%10d", count);
         putfonts8_asc_sht(sht_back, 0, 144, COLOR_WHITE, COLOR_BLACK, s, 128);
-
-        farjump(0, 3 * 8);
-        timer_settime(timer_ts, 2);
+        timer_settime(timer_ts, 10);
       }
     }
   }
@@ -108,6 +107,8 @@ void HariMain() {
   sheet_updown(sheet_mouse, 2);
 
   // タスク関連
+  task_init();
+
   TSS32 tss_a, tss_b;
   tss_a.ldtr = 0;
   tss_a.iomap = 0x40000000;
@@ -143,10 +144,6 @@ void HariMain() {
   Timer *timer = timer_alloc();
   timer_init(timer, &fifo, 1);
   timer_settime(timer, 100);
-
-  Timer *task_timer = timer_alloc();
-  timer_init(task_timer, &fifo, 2);
-  timer_settime(task_timer, 2);
 
   sprintf(buf, "sheet %d %d %d %d", sheet_ctl->width, sheet_ctl->height, sheet_ctl->top_index, sheet_ctl->sheets[0]->color_inv);
   putfonts8_asc(info->vram, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT, buf);
@@ -266,9 +263,6 @@ void HariMain() {
         sprintf(buf, "%d", count);
         putfonts8_asc(buf_win, wwidth, COLOR_BLACK, 40, 28, buf);
         sheet_refresh(sheet_win, 40, 28, 120, 44);
-      } else if (data == 2) {
-        farjump(0, 4 << 3);
-        timer_settime(task_timer, 2);
       }
     } else {
       // STIの後に割り込みが来るとキー情報があるのにHLTしてしまうので一緒に実行する
