@@ -269,6 +269,9 @@ void inthandler20(int *esp);
 
 // task.c
 
+#define MAX_TASK_NUM 1000
+#define TASK_GDT0    3
+
 typedef struct {
   // タスクの設定
   int backlink, esp0, ss0, esp1, ss1, esp2, ss2, cr3;
@@ -280,6 +283,19 @@ typedef struct {
   int ldtr, iomap;
 } TSS32; // task status segment
 
-void task_init();
-void task_switch();
+typedef struct {
+  int gdt_number, flags;
+  TSS32 tss;
+} Task;
 
+typedef struct {
+  int running_num;
+  int current_task;
+  Task *tasks[MAX_TASK_NUM];
+  Task tasks0[MAX_TASK_NUM];
+} TaskControl;
+
+Task *task_init(MemoryMan *mm);
+Task *task_alloc();
+void task_run(Task *task);
+void task_switch();

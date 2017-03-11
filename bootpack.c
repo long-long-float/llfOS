@@ -107,38 +107,22 @@ void HariMain() {
   sheet_updown(sheet_mouse, 2);
 
   // タスク関連
-  task_init();
+  Task *task_a = task_init(memman);
 
-  TSS32 tss_a, tss_b;
-  tss_a.ldtr = 0;
-  tss_a.iomap = 0x40000000;
+  Task *task_b = task_alloc();
 
-  tss_b.ldtr = 0;
-  tss_b.iomap = 0x40000000;
-  tss_b.eip = (int)&task_b_main;
-  tss_b.eflags = 0x00000202;
-  tss_b.eax = 0;
-  tss_b.ecx = 0;
-  tss_b.edx = 0;
-  tss_b.ebx = 0;
+  task_b->tss.eip = (int)&task_b_main;
   // task_b_mainに引数を渡している、ということにするために8を引く
-  tss_b.esp = memory_man_alloc_4k(memman, 64 * 1024) + 64 * 1024 - 8;
-  *((int*)(tss_b.esp + 4)) = (int)sheet_back;
-  tss_b.ebp = 0;
-  tss_b.esi = 0;
-  tss_b.edi = 0;
-  tss_b.es = 1 * 8;
-  tss_b.cs = 2 * 8;
-  tss_b.ss = 1 * 8;
-  tss_b.ds = 1 * 8;
-  tss_b.fs = 1 * 8;
-  tss_b.gs = 1 * 8;
+  task_b->tss.esp = memory_man_alloc_4k(memman, 64 * 1024) + 64 * 1024 - 8;
+  *((int*)(task_b->tss.esp + 4)) = (int)sheet_back;
+  task_b->tss.es = 1 * 8;
+  task_b->tss.cs = 2 * 8;
+  task_b->tss.ss = 1 * 8;
+  task_b->tss.ds = 1 * 8;
+  task_b->tss.fs = 1 * 8;
+  task_b->tss.gs = 1 * 8;
 
-  SegmentDescriptor *gdt = (SegmentDescriptor*)ADR_GDT;
-  set_segmdesc(&gdt[3], 103, &tss_a, AR_TSS32);
-  set_segmdesc(&gdt[4], 103, &tss_b, AR_TSS32);
-
-  load_tr(3 << 3);
+  task_run(task_b);
 
   // タイマー関連
   Timer *timer = timer_alloc();
@@ -149,6 +133,8 @@ void HariMain() {
   putfonts8_asc(info->vram, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT, buf);
 
   putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, 0, "Welcome to llfOS!");
+
+  extern TaskControl *task_control;
 
   sprintf(buf, "screen %dx%d", info->screenx, info->screeny);
   putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT, buf);
