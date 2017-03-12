@@ -292,6 +292,7 @@ typedef struct {
 typedef struct _Task {
   int gdt_number, flags;
   TSS32 tss;
+  int priority;
 } Task;
 
 typedef struct {
@@ -303,6 +304,6 @@ typedef struct {
 
 Task *task_init(MemoryMan *mm);
 Task *task_alloc();
-void task_run(Task *task);
+void task_run(Task *task, int priority);
 void task_switch();
 void task_sleep(Task *task);

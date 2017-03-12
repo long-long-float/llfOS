@@ -18,6 +18,8 @@ Task *task_init(MemoryMan *mm) {
 
   Task *task = task_alloc();
   task->flags = TASK_FLAGS_USED;
+  task->priority = 2;
+
   task_control->running_num = 1;
   task_control->current_task = 0;
   task_control->tasks[0] = task;
@@ -56,7 +58,11 @@ Task *task_alloc() {
   return NULL;
 }
 
-void task_run(Task *task) {
+void task_run(Task *task, int priority) {
+  if (priority > 0) {
+    task->priority = priority;
+  }
+
   if (task->flags != TASK_FLAGS_USED) {
     task->flags = TASK_FLAGS_USED;
     task_control->tasks[task_control->running_num] = task;
@@ -65,13 +71,11 @@ void task_run(Task *task) {
 }
 
 void task_switch() {
-  timer_settime(task_timer, TASK_SWITCH_INTERVAL);
+  task_control->current_task = (task_control->current_task + 1) % task_control->running_num;
+
+  timer_settime(task_timer, task_control->tasks[task_control->current_task]->priority);
 
   if (task_control->running_num >= 2) {
-    task_control->current_task++;
-    if (task_control->current_task == task_control->running_num) {
-      task_control->current_task = 0;
-    }
     farjump(0, task_control->tasks[task_control->current_task]->gdt_number);
   }
 }

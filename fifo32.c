@@ -17,7 +17,7 @@ int fifo32_push(FIFO32 *fifo32, int data) {
     fifo32->tail = (fifo32->tail + 1) % fifo32->size;
 
     if (fifo32->task && fifo32->flags != TASK_FLAGS_USED) {
-      task_run(fifo32->task);
+      task_run(fifo32->task, 0);
     }
 
     return 0;

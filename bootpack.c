@@ -123,7 +123,7 @@ void HariMain() {
   task_b->tss.fs = 1 * 8;
   task_b->tss.gs = 1 * 8;
 
-  task_run(task_b);
+  task_run(task_b, 1);
 
   // タイマー関連
   Timer *timer = timer_alloc();
