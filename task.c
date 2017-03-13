@@ -8,6 +8,13 @@ TaskControl *task_control;
 void task_add(Task *task);
 void task_switch_sub();
 
+// 動いているタスクが0になったら不都合なのでtask_idleが常に動くようにする
+void task_idle() {
+  while(true) {
+    io_hlt();
+  }
+}
+
 Task *task_init(MemoryMan *mm) {
   SegmentDescriptor *gdt = (SegmentDescriptor*)ADR_GDT;
   task_control = (TaskControl*)memory_man_alloc_4k(mm, sizeof(TaskControl));
@@ -33,6 +40,19 @@ Task *task_init(MemoryMan *mm) {
   task_switch_sub();
 
   load_tr(task->gdt_number);
+
+  Task *idle_task = task_alloc();
+
+  idle_task->tss.eip = (int)&task_idle;
+  idle_task->tss.esp = memory_man_alloc_4k(mm, 64 * 1024) + 64 * 1024;
+  idle_task->tss.es = 1 * 8;
+  idle_task->tss.cs = 2 * 8;
+  idle_task->tss.ss = 1 * 8;
+  idle_task->tss.ds = 1 * 8;
+  idle_task->tss.fs = 1 * 8;
+  idle_task->tss.gs = 1 * 8;
+
+  task_run(idle_task, MAX_TASK_LEVEL - 1, 1);
 
   task_timer = timer_alloc();
   timer_settime(task_timer, task->priority);
