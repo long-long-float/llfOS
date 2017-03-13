@@ -272,8 +272,10 @@ void inthandler20(int *esp);
 
 // task.c
 
-#define MAX_TASK_NUM 1000
-#define TASK_GDT0    3
+#define MAX_TASK_NUM_PER_LEVEL 100
+#define MAX_TASK_LEVEL         10
+#define MAX_TASK_NUM           (MAX_TASK_NUM_PER_LEVEL * MAX_TASK_LEVEL)
+#define TASK_GDT0              3
 
 #define TASK_FLAGS_ALLOC 1
 #define TASK_FLAGS_USED  2
@@ -293,17 +295,24 @@ typedef struct _Task {
   int gdt_number, flags;
   TSS32 tss;
   int priority;
+  int level;
 } Task;
 
 typedef struct {
   int running_num;
   int current_task;
-  Task *tasks[MAX_TASK_NUM];
+  Task *tasks[MAX_TASK_NUM_PER_LEVEL];
+} TaskLevel;
+
+typedef struct {
+  int current_level;
+  bool will_change_level;
+  TaskLevel levels[MAX_TASK_LEVEL];
   Task tasks0[MAX_TASK_NUM];
 } TaskControl;
 
 Task *task_init(MemoryMan *mm);
 Task *task_alloc();
-void task_run(Task *task, int priority);
+void task_run(Task *task, int level, int priority);
 void task_switch();
 void task_sleep(Task *task);

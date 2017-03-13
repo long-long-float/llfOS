@@ -5,6 +5,9 @@
 Timer *task_timer;
 TaskControl *task_control;
 
+void task_add(Task *task);
+void task_switch_sub();
+
 Task *task_init(MemoryMan *mm) {
   SegmentDescriptor *gdt = (SegmentDescriptor*)ADR_GDT;
   task_control = (TaskControl*)memory_man_alloc_4k(mm, sizeof(TaskControl));
@@ -16,18 +19,23 @@ Task *task_init(MemoryMan *mm) {
     set_segmdesc(&gdt[TASK_GDT0 + i], 103, (int)&t->tss, AR_TSS32);
   }
 
+  for (int i = 0; i < MAX_TASK_LEVEL; i++) {
+    task_control->levels[i].running_num = 0;
+    task_control->levels[i].current_task = 0;
+  }
+
   Task *task = task_alloc();
   task->flags = TASK_FLAGS_USED;
   task->priority = 2;
+  task->level = 0;
 
-  task_control->running_num = 1;
-  task_control->current_task = 0;
-  task_control->tasks[0] = task;
+  task_add(task);
+  task_switch_sub();
 
   load_tr(task->gdt_number);
 
   task_timer = timer_alloc();
-  timer_settime(task_timer, TASK_SWITCH_INTERVAL);
+  timer_settime(task_timer, task->priority);
 
   return task;
 }
@@ -58,53 +66,105 @@ Task *task_alloc() {
   return NULL;
 }
 
-void task_run(Task *task, int priority) {
+Task *task_current() {
+  TaskLevel *l = &task_control->levels[task_control->current_level];
+  return l->tasks[l->current_task];
+}
+
+void task_add(Task *task) {
+  TaskLevel *level = &task_control->levels[task->level];
+  if (level->running_num < MAX_TASK_NUM_PER_LEVEL) {
+    level->tasks[level->running_num++] = task;
+    task->flags = TASK_FLAGS_USED;
+  }
+}
+
+void task_remove(Task *task) {
+  if (task->flags == TASK_FLAGS_USED) {
+    TaskLevel *level = &task_control->levels[task->level];
+
+    int index;
+    for (index = 0; index < level->running_num; index++) {
+      if (level->tasks[index] == task) break;
+    }
+
+    level->running_num--;
+    if (index < level->current_task) {
+      level->current_task--;
+    }
+
+    for (; index < level->running_num; index++) {
+      level->tasks[index] = level->tasks[index + 1];
+    }
+
+    task->flags = TASK_FLAGS_ALLOC;
+  }
+}
+
+void task_run(Task *task, int level, int priority) {
+  if (level < 0) {
+    level = task->level; // レベルを変更しない
+  }
   if (priority > 0) {
     task->priority = priority;
   }
 
-  if (task->flags != TASK_FLAGS_USED) {
-    task->flags = TASK_FLAGS_USED;
-    task_control->tasks[task_control->running_num] = task;
-    task_control->running_num++;
+  if (task->flags == TASK_FLAGS_USED && task->level != level) {
+    // レベルの変更
+    task_remove(task);
   }
+
+  if (task->flags != TASK_FLAGS_USED) {
+    // スリープからの復帰
+    task->level = level;
+    task_add(task);
+  }
+
+  task_control->will_change_level = true;
+}
+
+void task_switch_sub() {
+  int i;
+  for (i = 0; i < MAX_TASK_LEVEL; i++) {
+    if (task_control->levels[i].running_num > 0) break;
+  }
+
+  task_control->current_level = i;
+  task_control->will_change_level = false;
 }
 
 void task_switch() {
-  task_control->current_task = (task_control->current_task + 1) % task_control->running_num;
+  TaskLevel *level = &task_control->levels[task_control->current_level];
+  Task *current_task = task_current();
 
-  timer_settime(task_timer, task_control->tasks[task_control->current_task]->priority);
+  level->current_task++;
+  if (level->current_task >= level->running_num) {
+    level->current_task = 0;
+  }
 
-  if (task_control->running_num >= 2) {
-    farjump(0, task_control->tasks[task_control->current_task]->gdt_number);
+  if (task_control->will_change_level) {
+    task_switch_sub();
+    level = &task_control->levels[task_control->current_level];
+  }
+
+  Task *task = level->tasks[level->current_task];
+
+  timer_settime(task_timer, task->priority);
+
+  if (task != current_task) {
+    farjump(0, task->gdt_number);
   }
 }
 
 void task_sleep(Task *task) {
   if (task->flags == TASK_FLAGS_USED) {
-    bool is_current_task = task == task_control->tasks[task_control->current_task];
+    Task *current_task = task_current();
+    task_remove(task);
 
-    int index;
-    for (index = 0; index < task_control->running_num; index++) {
-      if (task_control->tasks[index] == task) break;
-    }
-
-    task_control->running_num--;
-    if (index < task_control->current_task) {
-      task_control->current_task--;
-    }
-
-    for (; index < task_control->running_num; index++) {
-      task_control->tasks[index] = task_control->tasks[index + 1];
-    }
-
-    task->flags = TASK_FLAGS_ALLOC;
-
-    if (is_current_task) {
-      if (task_control->current_task >= task_control->running_num) {
-        task_control->current_task = 0;
-      }
-      farjump(0, task_control->tasks[task_control->current_task]->gdt_number);
+    if (task == current_task) {
+      task_switch_sub();
+      current_task = task_current();
+      farjump(0, current_task->gdt_number);
     }
   }
 }
