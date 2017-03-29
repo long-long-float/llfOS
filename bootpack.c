@@ -18,34 +18,38 @@ void putfonts8_asc_sht(Sheet *sht, int x, int y, int c, int b, char *s, int l) {
   return;
 }
 
-void task_b_main(Sheet *sht_back) {
+void task_console_main(Sheet *sheet) {
   FIFO32 fifo;
-  int fifobuf[128];
+  Task *task = task_current();
 
-  char s[128];
+  int fifobuf[128], cursor_x = 8;
+  Color cursor_c = COLOR_WHITE;
 
-  fifo32_init(&fifo, 128, fifobuf, NULL);
-  Timer *timer_ts = timer_alloc();
-  timer_init(timer_ts, &fifo, 1);
-  timer_settime(timer_ts, 10);
+  fifo32_init(&fifo, 128, fifobuf, task);
+  Timer *timer = timer_alloc();
+  timer_init(timer, &fifo, 1);
+  timer_settime(timer, 50);
 
-  int count = 0;
-
-  while (1) {
-    count++;
-
+  while(true) {
     io_cli();
 
     if (fifo32_count(&fifo) == 0) {
+      task_sleep(task);
       io_sti();
     } else {
       int i = fifo32_pop(&fifo);
-
       io_sti();
-      if (i == 1) {
-        sprintf(s, "%10d", count);
-        putfonts8_asc_sht(sht_back, 0, 144, COLOR_WHITE, COLOR_BLACK, s, 128);
-        timer_settime(timer_ts, 10);
+      if (i <= 1) { // カーソル用タイマ
+        if (i != 0) {
+          timer_init(timer, &fifo, 0);
+          cursor_c = COLOR_BLACK;
+        } else {
+          timer_init(timer, &fifo, 1);
+          cursor_c = COLOR_WHITE;
+        }
+        timer_settime(timer, 50);
+        boxfill8(sheet->buf, sheet->bwidth, cursor_c, cursor_x, 28, cursor_x + 7, 43);
+        sheet_refresh(sheet, cursor_x, 28, cursor_x + 8, 44);
       }
     }
   }
@@ -93,13 +97,12 @@ void HariMain() {
   init_mouse_cursor8(buf_mouse, 99);
   sheet_slide(sheet_mouse, mousex, mousey);
 
-  const int wwidth = 160, wheight = 68;
+  const int wwidth = 256, wheight = 165;
   Sheet *sheet_win = sheet_alloc(sheet_ctl);
   byte *buf_win = (byte*)memory_man_alloc_4k(memman, wwidth * wheight);
   sheet_init(sheet_win, buf_win, wwidth, wheight, -1);
-  make_window8(buf_win, wwidth, wheight, "window");
-  putfonts8_asc(buf_win, wwidth, COLOR_BLACK, 24, 28, "Welcome to");
-  putfonts8_asc(buf_win, wwidth, COLOR_BLACK, 24, 44, "  llfOS!");
+  make_window8(buf_win, wwidth, wheight, "terminal");
+  boxfill8(sheet_win->buf, sheet_win->bwidth, COLOR_BLACK, 8, 28, wwidth - 8, wheight - 8);
   sheet_slide(sheet_win, 80, 72);
 
   sheet_updown(sheet_back, 0);
@@ -111,20 +114,20 @@ void HariMain() {
   fifo.task = task_a;
   task_run(task_a, 1, 0);
 
-  Task *task_b = task_alloc();
+  Task *task_console = task_alloc();
 
-  task_b->tss.eip = (int)&task_b_main;
-  // task_b_mainに引数を渡している、ということにするために8を引く
-  task_b->tss.esp = memory_man_alloc_4k(memman, 64 * 1024) + 64 * 1024 - 8;
-  *((int*)(task_b->tss.esp + 4)) = (int)sheet_back;
-  task_b->tss.es = 1 * 8;
-  task_b->tss.cs = 2 * 8;
-  task_b->tss.ss = 1 * 8;
-  task_b->tss.ds = 1 * 8;
-  task_b->tss.fs = 1 * 8;
-  task_b->tss.gs = 1 * 8;
+  task_console->tss.eip = (int)&task_console_main;
+  // task_console_mainに引数を渡している、ということにするために8を引く
+  task_console->tss.esp = memory_man_alloc_4k(memman, 64 * 1024) + 64 * 1024 - 8;
+  *((int*)(task_console->tss.esp + 4)) = (int)sheet_win;
+  task_console->tss.es = 1 * 8;
+  task_console->tss.cs = 2 * 8;
+  task_console->tss.ss = 1 * 8;
+  task_console->tss.ds = 1 * 8;
+  task_console->tss.fs = 1 * 8;
+  task_console->tss.gs = 1 * 8;
 
-  task_run(task_b, 2, 1);
+  task_run(task_console, 2, 2);
 
   // タイマー関連
   Timer *timer = timer_alloc();
@@ -240,15 +243,6 @@ void HariMain() {
             }
           }
         }
-      } else if (data == 1) { // timer
-        count++;
-
-        timer_settime(timer, 100);
-
-        boxfill8(buf_win, wwidth, COLOR_LIGHT_GRAY, 40, 28, 119, 43);
-        sprintf(buf, "%d", count);
-        putfonts8_asc(buf_win, wwidth, COLOR_BLACK, 40, 28, buf);
-        sheet_refresh(sheet_win, 40, 28, 120, 44);
       }
     } else {
       // task_sleep中に割り込みが来たら困るのでsleepから復帰したらフラグを戻す(task bの方は別の割り込みレジスタになるので問題なく割り込みが来る)

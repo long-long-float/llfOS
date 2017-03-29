@@ -315,4 +315,5 @@ Task *task_init(MemoryMan *mm);
 Task *task_alloc();
 void task_run(Task *task, int level, int priority);
 void task_switch();
+Task *task_current();
 void task_sleep(Task *task);
