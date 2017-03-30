@@ -218,9 +218,24 @@ void HariMain() {
   };
 
   int pushed_shift = 0; // 0bit: 左シフト, 1bit: 右シフト
-  const int key_leds = (info->leds >> 4) & 7;
+  int key_leds = (info->leds >> 4) & 7;
+
+  // キーボードのLED関係
+  FIFO32 keycmd;
+  int keycmdbuf[32];
+  int keycmd_wait = -1;
+  fifo32_init(&keycmd, 32, keycmdbuf, NULL);
+
+  fifo32_push(&keycmd, KEYCMD_LED);
+  fifo32_push(&keycmd, key_leds);
 
   while (1) {
+    if (fifo32_count(&keycmd) > 0 && keycmd_wait < 0) {
+      keycmd_wait = fifo32_pop(&keycmd);
+      wait_KBC_sendready();
+      io_out8(PORT_KEYDAT, keycmd_wait);
+    }
+
     // keybuf.dataを読み取っている間に割り込みが来たら困るので
     io_cli();
 
@@ -277,6 +292,31 @@ void HariMain() {
         }
         if (sent_data > 0) {
           fifo32_push(&task_console->fifo, sent_data + FIFO_KEYBORD_BEGIN);
+        }
+
+        bool changed_led = false;
+        if (data == 0x3a) { // CapsLock
+          key_leds ^= 1 << 2;
+          changed_led = true;
+        }
+        if (data == 0x45) { // NumLock
+          key_leds ^= 1 << 1;
+          changed_led = true;
+        }
+        if (data == 0x46) { // ScrollLock
+          key_leds ^= 1 << 0;
+          changed_led = true;
+        }
+        if (changed_led) {
+          fifo32_push(&keycmd, KEYCMD_LED);
+          fifo32_push(&keycmd, key_leds);
+        }
+        if (data == 0xfa) {
+          keycmd_wait = -1;
+        }
+        if (data == 0xfe) {
+          wait_KBC_sendready();
+          io_out8(PORT_KEYDAT, keycmd_wait);
         }
       } else if (FIFO_MOUSE_BEGIN <= data && data <= FIFO_MOUSE_END) {
         // マウスの処理

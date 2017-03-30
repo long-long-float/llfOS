@@ -119,6 +119,7 @@ void set_gatedesc(GateDescriptor *gd, int offset, int selector, int ar);
 #define KBC_MODE    0x47
 #define KEYCMD_SENDTO_MOUSE  0xd4
 #define MOUSECMD_ENABLE      0xf4
+#define KEYCMD_LED           0xed
 
 void init_pic();
 
