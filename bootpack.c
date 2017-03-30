@@ -218,6 +218,7 @@ void HariMain() {
   };
 
   int pushed_shift = 0; // 0bit: 左シフト, 1bit: 右シフト
+  const int key_leds = (info->leds >> 4) & 7;
 
   while (1) {
     // keybuf.dataを読み取っている間に割り込みが来たら困るので
@@ -267,6 +268,12 @@ void HariMain() {
         }
         if (data == 0xb6) { // 右シフト(off)
           pushed_shift &= ~(1 << 1);
+        }
+        if ('A' <= sent_data && sent_data <= 'Z') { // 小文字に変換
+          bool caps = key_leds & 1 << 2;
+          if ((caps && pushed_shift) || (!caps && !pushed_shift)) {
+            sent_data = 'a' + (sent_data - 'A');
+          }
         }
         if (sent_data > 0) {
           fifo32_push(&task_console->fifo, sent_data + FIFO_KEYBORD_BEGIN);
