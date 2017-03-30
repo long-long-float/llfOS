@@ -296,6 +296,8 @@ typedef struct _Task {
   TSS32 tss;
   int priority;
   int level;
+
+  FIFO32 fifo;
 } Task;
 
 typedef struct {

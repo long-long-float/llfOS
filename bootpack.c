@@ -1,5 +1,6 @@
 #include "bootpack.h"
 #include <stdio.h>
+#include <string.h>
 
 #define FIFO_KEYBORD_BEGIN 256
 #define FIFO_KEYBORD_END   511
@@ -18,38 +19,78 @@ void putfonts8_asc_sht(Sheet *sht, int x, int y, int c, int b, char *s, int l) {
   return;
 }
 
+char char_buf[20][1024];
+
 void task_console_main(Sheet *sheet) {
-  FIFO32 fifo;
   Task *task = task_current();
 
-  int fifobuf[128], cursor_x = 8;
+  int fifobuf[128];
+  FIFO32 *fifo = &task->fifo;
+  fifo32_init(fifo, 128, fifobuf, task);
+
+  Timer *timer = timer_alloc();
+  timer_init(timer, fifo, 1);
+  timer_settime(timer, 50);
+
+  int char_count = 2, row_count = 0;
   Color cursor_c = COLOR_WHITE;
 
-  fifo32_init(&fifo, 128, fifobuf, task);
-  Timer *timer = timer_alloc();
-  timer_init(timer, &fifo, 1);
-  timer_settime(timer, 50);
+  memset(char_buf, '\0', 20 * 1024 * sizeof(char));
+
+  char_buf[row_count][0] = '>';
+  char_buf[row_count][1] = ' ';
+
+  putfonts8_asc(sheet->buf, sheet->bwidth, COLOR_WHITE, 8, 28, char_buf[row_count]);
+  sheet_refresh(sheet, 0, 0, sheet->bwidth, sheet->bheight);
 
   while(true) {
     io_cli();
 
-    if (fifo32_count(&fifo) == 0) {
+    if (fifo32_count(fifo) == 0) {
       task_sleep(task);
       io_sti();
     } else {
-      int i = fifo32_pop(&fifo);
+      int data = fifo32_pop(fifo);
       io_sti();
-      if (i <= 1) { // カーソル用タイマ
-        if (i != 0) {
-          timer_init(timer, &fifo, 0);
+      if (data <= 1) { // カーソル用タイマ
+        if (data != 0) {
+          timer_init(timer, fifo, 0);
           cursor_c = COLOR_BLACK;
         } else {
-          timer_init(timer, &fifo, 1);
+          timer_init(timer, fifo, 1);
           cursor_c = COLOR_WHITE;
         }
         timer_settime(timer, 50);
-        boxfill8(sheet->buf, sheet->bwidth, cursor_c, cursor_x, 28, cursor_x + 7, 43);
-        sheet_refresh(sheet, cursor_x, 28, cursor_x + 8, 44);
+
+        int cursor_x = 8 + char_count * FONT_WIDTH;
+        int cursor_y = 28 + row_count * FONT_HEIGHT;
+        int right = cursor_x + FONT_WIDTH, bottom = cursor_y + FONT_HEIGHT;
+        boxfill8(sheet->buf, sheet->bwidth, cursor_c, cursor_x, cursor_y, right - 1, bottom - 1);
+        sheet_refresh(sheet, cursor_x, cursor_y, right, bottom);
+      }
+      if (FIFO_KEYBORD_BEGIN <= data && data <= FIFO_KEYBORD_END) {
+        data -= FIFO_KEYBORD_BEGIN;
+
+        boxfill8(sheet->buf, sheet->bwidth, COLOR_BLACK, 8, 28, sheet->bwidth - 8, sheet->bheight - 28);
+
+        if (data == 0x08) { // バックスペース
+          if (char_count > 2) {
+            char_buf[row_count][--char_count] = '\0';
+          }
+        } else if (data == 0x0a) { // リターン
+          row_count++;
+          char_count = 2;
+          char_buf[row_count][0] = '>';
+          char_buf[row_count][1] = ' ';
+        } else if (data <= 0x54) {
+          char_buf[row_count][char_count++] = data - FIFO_KEYBORD_BEGIN;
+        }
+
+        for (int i = 0; i <= row_count; i++) {
+          putfonts8_asc(sheet->buf, sheet->bwidth, COLOR_WHITE, 8, 28 + i * FONT_HEIGHT, char_buf[i]);
+        }
+
+        sheet_refresh(sheet, 0, 0, sheet->bwidth, sheet->bheight);
       }
     }
   }
@@ -182,11 +223,25 @@ void HariMain() {
 
         boxfill8(buf_back, info->screenx, COLOR_BLACK, 0, FONT_HEIGHT * 2, info->screenx, FONT_HEIGHT * 3);
 
-        char buf[] = "keyboard: .";
-        buf[10] = KEY_TABLE[data];
+        char buf[128];
+        sprintf(buf, "keyboard: %x", data);
         putfonts8_asc(buf_back, info->screenx, COLOR_WHITE, 0, FONT_HEIGHT * 2, buf);
 
         sheet_refresh(sheet_back, 0, 0, info->screenx, FONT_HEIGHT * 4);
+
+        int sent_data = -1;
+        if (data <= 0x54 && KEY_TABLE[data] != 0) { // 普通の文字
+          sent_data = KEY_TABLE[data];
+        } else if (data == 0x0e) { // バックスペース
+          sent_data = 0x08;
+        } else if (data == 0x0f) { // タブ
+          sent_data = 0x09;
+        } else if (data == 0x1c) { // リターン
+          sent_data = 0x0a;
+        }
+        if (sent_data > 0) {
+          fifo32_push(&task_console->fifo, sent_data + FIFO_KEYBORD_BEGIN);
+        }
       } else if (FIFO_MOUSE_BEGIN <= data && data <= FIFO_MOUSE_END) {
         // マウスの処理
         data -= FIFO_MOUSE_BEGIN;
