@@ -82,7 +82,7 @@ void task_console_main(Sheet *sheet) {
           char_count = 2;
           char_buf[row_count][0] = '>';
           char_buf[row_count][1] = ' ';
-        } else if (data <= 0x54) {
+        } else {
           char_buf[row_count][char_count++] = data - FIFO_KEYBORD_BEGIN;
         }
 
@@ -206,8 +206,18 @@ void HariMain() {
     0,   0,   0,   0,   0,   0,   0,   '7', '8', '9', '-', '4', '5', '6', '+', '1',
     '2', '3', '0', '.'
   };
+  static char KEY_TABLE_SHIFT[0x80] = {
+    0,   0,   '!', 0x22, '#', '$', '%', '&', 0x27, '(', ')', '~', '=', '~', 0,   0,
+    'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '`', '{', 0,   0,   'A', 'S',
+    'D', 'F', 'G', 'H', 'J', 'K', 'L', '+', '*', 0,   0,   '}', 'Z', 'X', 'C', 'V',
+    'B', 'N', 'M', '<', '>', '?', 0,   '*', 0,   ' ', 0,   0,   0,   0,   0,   0,
+    0,   0,   0,   0,   0,   0,   0,   '7', '8', '9', '-', '4', '5', '6', '+', '1',
+    '2', '3', '0', '.', 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+    0,   0,   0,   '_', 0,   0,   0,   0,   0,   0,   0,   0,   0,   '|', 0,   0
+  };
 
-  int count = 0;
+  int pushed_shift = 0; // 0bit: 左シフト, 1bit: 右シフト
 
   while (1) {
     // keybuf.dataを読み取っている間に割り込みが来たら困るので
@@ -230,14 +240,33 @@ void HariMain() {
         sheet_refresh(sheet_back, 0, 0, info->screenx, FONT_HEIGHT * 4);
 
         int sent_data = -1;
-        if (data <= 0x54 && KEY_TABLE[data] != 0) { // 普通の文字
-          sent_data = KEY_TABLE[data];
-        } else if (data == 0x0e) { // バックスペース
+        if (data < 0x80) { // 普通の文字
+          if (pushed_shift == 0 && KEY_TABLE[data] != 0) {
+            sent_data = KEY_TABLE[data];
+          } else if (KEY_TABLE_SHIFT[data] != 0) {
+            sent_data = KEY_TABLE_SHIFT[data];
+          }
+        }
+        if (data == 0x0e) { // バックスペース
           sent_data = 0x08;
-        } else if (data == 0x0f) { // タブ
+        }
+        if (data == 0x0f) { // タブ
           sent_data = 0x09;
-        } else if (data == 0x1c) { // リターン
+        }
+        if (data == 0x1c) { // リターン
           sent_data = 0x0a;
+        }
+        if (data == 0x2a) { // 左シフト
+          pushed_shift |= 1;
+        }
+        if (data == 0x36) { // 右シフト
+          pushed_shift |= 1 << 1;
+        }
+        if (data == 0xaa) { // 左シフト(off)
+          pushed_shift &= ~1;
+        }
+        if (data == 0xb6) { // 右シフト(off)
+          pushed_shift &= ~(1 << 1);
         }
         if (sent_data > 0) {
           fifo32_push(&task_console->fifo, sent_data + FIFO_KEYBORD_BEGIN);
