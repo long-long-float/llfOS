@@ -200,6 +200,7 @@ unsigned memory_man_alloc(MemoryMan *mm, unsigned size);
 bool memory_man_free(MemoryMan *mm, unsigned address, unsigned size);
 unsigned memory_man_alloc_4k(MemoryMan *mm, unsigned size);
 unsigned memory_man_free_4k(MemoryMan *mm, unsigned address, unsigned size);
+unsigned memory_man_free_size(MemoryMan *mm);
 
 // sheet.c
 

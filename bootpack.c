@@ -22,10 +22,28 @@ void putfonts8_asc_sht(Sheet *sht, int x, int y, int c, int b, char *s, int l) {
   return;
 }
 
-char char_buf[CONSOLE_ROW_MAX][1024];
+void console_newline(int *char_count, int *row_count, char char_buf[][CONSOLE_COL_MAX], bool put_prompt) {
+  (*row_count)++;
 
-void task_console_main(Sheet *sheet) {
+  if (*row_count >= CONSOLE_ROW_MAX) {
+    (*row_count)--;
+    // 下端まで達したらずらす
+    for (int i = 1; i < CONSOLE_ROW_MAX; i++) {
+      strcpy(char_buf[i - 1], char_buf[i]);
+    }
+  }
+
+  if (put_prompt) {
+    *char_count = 2;
+    strcpy(char_buf[*row_count], "> ");
+  } else {
+    *char_count = 0;
+  }
+}
+
+void task_console_main(Sheet *sheet, int memsize) {
   Task *task = task_current();
+  MemoryMan *memman = (MemoryMan*)MEMORY_MAN_ADDRESS;
 
   int fifobuf[128];
   FIFO32 *fifo = &task->fifo;
@@ -35,13 +53,14 @@ void task_console_main(Sheet *sheet) {
   timer_init(timer, fifo, 1);
   timer_settime(timer, 50);
 
+  char char_buf[CONSOLE_ROW_MAX][CONSOLE_COL_MAX];
+
   int char_count = 2, row_count = 0;
   Color cursor_c = COLOR_WHITE;
 
-  memset(char_buf, '\0', CONSOLE_ROW_MAX * 1024 * sizeof(char));
+  memset(char_buf, '\0', CONSOLE_ROW_MAX * CONSOLE_COL_MAX * sizeof(char));
 
-  char_buf[row_count][0] = '>';
-  char_buf[row_count][1] = ' ';
+  strcpy(char_buf[row_count], "> ");
 
   putfonts8_asc(sheet->buf, sheet->bwidth, COLOR_WHITE, 8, 28, char_buf[row_count]);
   sheet_refresh(sheet, 0, 0, sheet->bwidth, sheet->bheight);
@@ -81,17 +100,20 @@ void task_console_main(Sheet *sheet) {
             char_buf[row_count][--char_count] = '\0';
           }
         } else if (data == 0x0a) { // リターン
-          row_count++;
-          if (row_count >= CONSOLE_ROW_MAX) {
-            row_count--;
-            // 下端まで達したらずらす
-            for (int i = 1; i < CONSOLE_ROW_MAX; i++) {
-              strcpy(char_buf[i - 1], char_buf[i]);
-            }
+          char cmd[124];
+          strcpy(cmd, &char_buf[row_count][2]);
+
+          console_newline(&char_count, &row_count, char_buf, false);
+
+          if (strcmp(cmd, "free") == 0) {
+            sprintf(char_buf[row_count], "total: %dB, free: %dB", memsize, memory_man_free_size(memman));
+          } else {
+            char buf[124];
+            sprintf(buf, "unknown command '%s'", cmd);
+            strcpy(char_buf[row_count], buf);
           }
 
-          char_count = 2;
-          strcpy(char_buf[row_count], "> ");
+          console_newline(&char_count, &row_count, char_buf, true);
         } else if(char_count < CONSOLE_COL_MAX - 1) {
           char_buf[row_count][char_count++] = data - FIFO_KEYBORD_BEGIN;
           char_buf[row_count][char_count] = '\0';
@@ -170,8 +192,9 @@ void HariMain() {
 
   task_console->tss.eip = (int)&task_console_main;
   // task_console_mainに引数を渡している、ということにするために8を引く
-  task_console->tss.esp = memory_man_alloc_4k(memman, 64 * 1024) + 64 * 1024 - 8;
+  task_console->tss.esp = memory_man_alloc_4k(memman, 64 * 1024) + 64 * 1024 - 12;
   *((int*)(task_console->tss.esp + 4)) = (int)sheet_win;
+  *((int*)(task_console->tss.esp + 8)) = memsize;
   task_console->tss.es = 1 * 8;
   task_console->tss.cs = 2 * 8;
   task_console->tss.ss = 1 * 8;

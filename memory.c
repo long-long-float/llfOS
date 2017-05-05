@@ -141,3 +141,10 @@ unsigned memory_man_free_4k(MemoryMan *mm, unsigned address, unsigned size) {
   return memory_man_free(mm, address, (size + 0xfff) & 0xfffff000); // 4k単位で切り上げ
 }
 
+unsigned memory_man_free_size(MemoryMan *mm) {
+  unsigned result = 0;
+  for (int i = 0; i < mm->free_count; i++) {
+    result += mm->frees[i].size;
+  }
+  return result;
+}
