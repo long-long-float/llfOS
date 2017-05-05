@@ -15,7 +15,8 @@ typedef struct {
   byte *vram;
 } BootInfo;
 
-#define ADR_BOOTINFO 0x0ff0
+#define ADR_BOOTINFO 0x00000ff0
+#define ADR_DISKIMG  0x00100000
 
 // naskfunc.nas
 

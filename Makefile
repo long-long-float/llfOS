@@ -22,6 +22,8 @@ helloos.img: ipl.bin llfos.sys
 		imgin:./tolset/z_tools/fdimg0at.tek \
 		wbinimg src:ipl.bin len:512 from:0 to:0 \
 		copy from:llfos.sys to:@: \
+		copy from:ipl.nas to:@: \
+		copy from:Makefile to:@: \
 		imgout:helloos.img
 
 ipl.bin: ipl.nas

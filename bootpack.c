@@ -10,6 +10,13 @@
 #define CONSOLE_ROW_MAX 8
 #define CONSOLE_COL_MAX 30
 
+typedef struct {
+  byte name[8], ext[3], type;
+  char reserved[10];
+  unsigned short time, date, clustno;
+  unsigned int size;
+} FileInfo;
+
 extern TimerControl timerctl;
 
 void make_window8(byte *buf, int xsize, int ysize, char *title);
@@ -44,6 +51,7 @@ void console_newline(int *char_count, int *row_count, char char_buf[][CONSOLE_CO
 void task_console_main(Sheet *sheet, int memsize) {
   Task *task = task_current();
   MemoryMan *memman = (MemoryMan*)MEMORY_MAN_ADDRESS;
+  FileInfo *file_info = (FileInfo*)(ADR_DISKIMG + 0x002600);
 
   int fifobuf[128];
   FIFO32 *fifo = &task->fifo;
@@ -105,9 +113,38 @@ void task_console_main(Sheet *sheet, int memsize) {
 
           if (strlen(cmd) > 0) {
             console_newline(&char_count, &row_count, char_buf, false);
+
             if (strcmp(cmd, "free") == 0) {
               sprintf(char_buf[row_count], "total: %dB, free: %dB", memsize, memory_man_free_size(memman));
-            }else {
+
+            } else if (strcmp(cmd, "ls") == 0) {
+              strcpy(char_buf[row_count], "name         size");
+              console_newline(&char_count, &row_count, char_buf, false);
+
+              for (FileInfo *cur = file_info; cur->name[0] != 0; cur++) {
+                if (cur->name[0] == 0xe5) continue; // deleted file
+
+                if (!(cur->type & 0x18)) { // neither directory nor file information
+                  char buf[128];
+                  sprintf(buf, "xxxxxxxx.xxx %d", cur->size);
+                  for (int i = 0; i < 8; i++) buf[i] = cur->name[i];
+
+                  bool no_ext = true;
+                  for (int i = 0; i < 3; i++) {
+                    buf[i + 9] = cur->ext[i];
+                    if (no_ext && cur->ext[i] != ' ') {
+                      no_ext = false;
+                    }
+                  }
+
+                  if (no_ext) buf[8] = ' ';
+
+                  strcpy(char_buf[row_count], buf);
+                  console_newline(&char_count, &row_count, char_buf, false);
+                }
+              }
+
+            } else {
               char buf[124];
               sprintf(buf, "unknown command '%s'", cmd);
               strcpy(char_buf[row_count], buf);
