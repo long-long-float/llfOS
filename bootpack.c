@@ -7,6 +7,9 @@
 #define FIFO_MOUSE_BEGIN   (FIFO_KEYBORD_END+1)
 #define FIFO_MOUSE_END     767
 
+#define CONSOLE_ROW_MAX 8
+#define CONSOLE_COL_MAX 30
+
 extern TimerControl timerctl;
 
 void make_window8(byte *buf, int xsize, int ysize, char *title);
@@ -19,7 +22,7 @@ void putfonts8_asc_sht(Sheet *sht, int x, int y, int c, int b, char *s, int l) {
   return;
 }
 
-char char_buf[20][1024];
+char char_buf[CONSOLE_ROW_MAX][1024];
 
 void task_console_main(Sheet *sheet) {
   Task *task = task_current();
@@ -35,7 +38,7 @@ void task_console_main(Sheet *sheet) {
   int char_count = 2, row_count = 0;
   Color cursor_c = COLOR_WHITE;
 
-  memset(char_buf, '\0', 20 * 1024 * sizeof(char));
+  memset(char_buf, '\0', CONSOLE_ROW_MAX * 1024 * sizeof(char));
 
   char_buf[row_count][0] = '>';
   char_buf[row_count][1] = ' ';
@@ -71,7 +74,7 @@ void task_console_main(Sheet *sheet) {
       if (FIFO_KEYBORD_BEGIN <= data && data <= FIFO_KEYBORD_END) {
         data -= FIFO_KEYBORD_BEGIN;
 
-        boxfill8(sheet->buf, sheet->bwidth, COLOR_BLACK, 8, 28, sheet->bwidth - 8, sheet->bheight - 28);
+        boxfill8(sheet->buf, sheet->bwidth, COLOR_BLACK, 8, 28, sheet->bwidth - 8, sheet->bheight - 8);
 
         if (data == 0x08) { // バックスペース
           if (char_count > 2) {
@@ -79,11 +82,19 @@ void task_console_main(Sheet *sheet) {
           }
         } else if (data == 0x0a) { // リターン
           row_count++;
+          if (row_count >= CONSOLE_ROW_MAX) {
+            row_count--;
+            // 下端まで達したらずらす
+            for (int i = 1; i < CONSOLE_ROW_MAX; i++) {
+              strcpy(char_buf[i - 1], char_buf[i]);
+            }
+          }
+
           char_count = 2;
-          char_buf[row_count][0] = '>';
-          char_buf[row_count][1] = ' ';
-        } else {
+          strcpy(char_buf[row_count], "> ");
+        } else if(char_count < CONSOLE_COL_MAX - 1) {
           char_buf[row_count][char_count++] = data - FIFO_KEYBORD_BEGIN;
+          char_buf[row_count][char_count] = '\0';
         }
 
         for (int i = 0; i <= row_count; i++) {
