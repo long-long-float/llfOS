@@ -103,14 +103,15 @@ void task_console_main(Sheet *sheet, int memsize) {
           char cmd[124];
           strcpy(cmd, &char_buf[row_count][2]);
 
-          console_newline(&char_count, &row_count, char_buf, false);
-
-          if (strcmp(cmd, "free") == 0) {
-            sprintf(char_buf[row_count], "total: %dB, free: %dB", memsize, memory_man_free_size(memman));
-          } else {
-            char buf[124];
-            sprintf(buf, "unknown command '%s'", cmd);
-            strcpy(char_buf[row_count], buf);
+          if (strlen(cmd) > 0) {
+            console_newline(&char_count, &row_count, char_buf, false);
+            if (strcmp(cmd, "free") == 0) {
+              sprintf(char_buf[row_count], "total: %dB, free: %dB", memsize, memory_man_free_size(memman));
+            }else {
+              char buf[124];
+              sprintf(buf, "unknown command '%s'", cmd);
+              strcpy(char_buf[row_count], buf);
+            }
           }
 
           console_newline(&char_count, &row_count, char_buf, true);
