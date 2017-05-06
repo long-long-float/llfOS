@@ -17,6 +17,11 @@ typedef struct {
   unsigned int size;
 } FileInfo;
 
+typedef struct {
+  char buf[CONSOLE_ROW_MAX][CONSOLE_COL_MAX];
+  int cursor_x, cursor_y;
+} Console;
+
 extern TimerControl timerctl;
 
 void make_window8(byte *buf, int xsize, int ysize, char *title);
@@ -29,23 +34,44 @@ void putfonts8_asc_sht(Sheet *sht, int x, int y, int c, int b, char *s, int l) {
   return;
 }
 
-void console_newline(int *char_count, int *row_count, char char_buf[][CONSOLE_COL_MAX], bool put_prompt) {
-  (*row_count)++;
+void console_print(Console *console, char *str);
 
-  if (*row_count >= CONSOLE_ROW_MAX) {
-    (*row_count)--;
+void console_newline(Console *console, bool put_prompt) {
+  console->cursor_y++;
+  console->cursor_x = 0;
+
+  if (console->cursor_y >= CONSOLE_ROW_MAX) {
+    console->cursor_y--;
     // 下端まで達したらずらす
     for (int i = 1; i < CONSOLE_ROW_MAX; i++) {
-      strcpy(char_buf[i - 1], char_buf[i]);
+      strcpy(console->buf[i - 1], console->buf[i]);
     }
+    console->buf[console->cursor_y][0] = '\0';
   }
 
   if (put_prompt) {
-    *char_count = 2;
-    strcpy(char_buf[*row_count], "> ");
-  } else {
-    *char_count = 0;
+    console_print(console, "> ");
   }
+}
+
+void console_putc(Console *console, char c) {
+  console->buf[console->cursor_y][console->cursor_x] = c;
+  console->cursor_x++;
+  console->buf[console->cursor_y][console->cursor_x] = '\0';
+
+  if (console->cursor_x >= CONSOLE_COL_MAX - 1) {
+    // 右端まで達したら改行
+    console_newline(console, false);
+  }
+}
+
+void console_print(Console *console, char *str) {
+  for (; *str; str++) console_putc(console, *str);
+}
+
+void console_puts(Console *console, char *str) {
+  console_print(console, str);
+  console_newline(console, false);
 }
 
 // 両端のスペースを取り除く
@@ -88,7 +114,7 @@ void make_file_name(FileInfo *fi, char *buf) {
 void task_console_main(Sheet *sheet, int memsize) {
   Task *task = task_current();
   MemoryMan *memman = (MemoryMan*)MEMORY_MAN_ADDRESS;
-  const FileInfo *file_info = (FileInfo*)(ADR_DISKIMG + 0x002600);
+  FileInfo *file_info = (FileInfo*)(ADR_DISKIMG + 0x002600);
 
   int fifobuf[128];
   FIFO32 *fifo = &task->fifo;
@@ -98,16 +124,15 @@ void task_console_main(Sheet *sheet, int memsize) {
   timer_init(timer, fifo, 1);
   timer_settime(timer, 50);
 
-  char char_buf[CONSOLE_ROW_MAX][CONSOLE_COL_MAX];
+  Console console;
 
-  int char_count = 2, row_count = 0;
   Color cursor_c = COLOR_WHITE;
 
-  memset(char_buf, '\0', CONSOLE_ROW_MAX * CONSOLE_COL_MAX * sizeof(char));
+  memset(console.buf, '\0', CONSOLE_ROW_MAX * CONSOLE_COL_MAX * sizeof(char));
 
-  strcpy(char_buf[row_count], "> ");
+  console_print(&console, "> ");
 
-  putfonts8_asc(sheet->buf, sheet->bwidth, COLOR_WHITE, 8, 28, char_buf[row_count]);
+  putfonts8_asc(sheet->buf, sheet->bwidth, COLOR_WHITE, 8, 28, console.buf[console.cursor_y]);
   sheet_refresh(sheet, 0, 0, sheet->bwidth, sheet->bheight);
 
   while(true) {
@@ -129,8 +154,8 @@ void task_console_main(Sheet *sheet, int memsize) {
         }
         timer_settime(timer, 50);
 
-        int cursor_x = 8 + char_count * FONT_WIDTH;
-        int cursor_y = 28 + row_count * FONT_HEIGHT;
+        int cursor_x = 8 + cursor_x * FONT_WIDTH;
+        int cursor_y = 28 + cursor_y * FONT_HEIGHT;
         int right = cursor_x + FONT_WIDTH, bottom = cursor_y + FONT_HEIGHT;
         boxfill8(sheet->buf, sheet->bwidth, cursor_c, cursor_x, cursor_y, right - 1, bottom - 1);
         sheet_refresh(sheet, cursor_x, cursor_y, right, bottom);
@@ -141,13 +166,14 @@ void task_console_main(Sheet *sheet, int memsize) {
         boxfill8(sheet->buf, sheet->bwidth, COLOR_BLACK, 8, 28, sheet->bwidth - 8, sheet->bheight - 8);
 
         if (data == 0x08) { // バックスペース
-          if (char_count > 2) {
-            char_buf[row_count][--char_count] = '\0';
+          // FIXME: はみ出してからのバックスペースに対応
+          if (console.cursor_x > 2) {
+            console.buf[console.cursor_y][--console.cursor_x] = '\0';
           }
         } else if (data == 0x0a) { // リターン
           char cmd[124], args[124];
 
-          strcpy(cmd, &char_buf[row_count][2]);
+          strcpy(cmd, &console.buf[console.cursor_y][2]);
 
           int args_head = 0;
           for (; cmd[args_head] && cmd[args_head] != ' '; args_head++) ;
@@ -157,14 +183,15 @@ void task_console_main(Sheet *sheet, int memsize) {
           cmd[args_head] = '\0';
 
           if (strlen(cmd) > 0) {
-            console_newline(&char_count, &row_count, char_buf, false);
+            console_newline(&console, false);
 
             if (strcmp(cmd, "free") == 0) {
-              sprintf(char_buf[row_count], "total: %dB, free: %dB", memsize, memory_man_free_size(memman));
+              char buf[128];
+              sprintf(buf, "total: %dB, free: %dB", memsize, memory_man_free_size(memman));
+              console_puts(&console, buf);
 
             } else if (strcmp(cmd, "ls") == 0) {
-              strcpy(char_buf[row_count], "name         size");
-              console_newline(&char_count, &row_count, char_buf, false);
+              console_puts(&console, "name         size");
 
               for (FileInfo *cur = file_info; cur->name[0] != 0; cur++) {
                 if (cur->name[0] == 0xe5) continue; // deleted file
@@ -172,8 +199,8 @@ void task_console_main(Sheet *sheet, int memsize) {
                 if (!(cur->type & 0x18)) { // neither directory nor file information
                   char buf[128];
                   make_file_name(cur, buf);
-                  sprintf(char_buf[row_count], "'%s' %d", buf, cur->size);
-                  console_newline(&char_count, &row_count, char_buf, false);
+                  sprintf(console.buf[console.cursor_y], "'%s' %d", buf, cur->size);
+                  console_newline(&console, false);
                 }
               }
 
@@ -191,28 +218,27 @@ void task_console_main(Sheet *sheet, int memsize) {
               }
 
               if (cur->name[0] == 0) {
-                strcpy(char_buf[row_count], "file not found");
+                console_puts(&console, "file not found");
               } else {
-                const byte *file_content_addr = ADR_DISKIMG + 0x003e00 + cur->clustno * 512;
-                for (int i = 0; i < cur->size && i < 20; i++) {
-                  char_buf[row_count][char_count++] = file_content_addr[i];
+                const byte *file_content_addr = (byte*)(ADR_DISKIMG + 0x003e00 + cur->clustno * 512);
+                for (int i = 0; i < cur->size; i++) {
+                  console_putc(&console, file_content_addr[i]);
                 }
               }
             } else {
               char buf[124];
               sprintf(buf, "unknown command '%s'", cmd);
-              strcpy(char_buf[row_count], buf);
+              console_puts(&console, buf);
             }
           }
 
-          console_newline(&char_count, &row_count, char_buf, true);
-        } else if(char_count < CONSOLE_COL_MAX - 1) {
-          char_buf[row_count][char_count++] = data - FIFO_KEYBORD_BEGIN;
-          char_buf[row_count][char_count] = '\0';
+          console_newline(&console, true);
+        } else {
+          console_putc(&console, data - FIFO_KEYBORD_BEGIN);
         }
 
-        for (int i = 0; i <= row_count; i++) {
-          putfonts8_asc(sheet->buf, sheet->bwidth, COLOR_WHITE, 8, 28 + i * FONT_HEIGHT, char_buf[i]);
+        for (int i = 0; i <= console.cursor_y; i++) {
+          putfonts8_asc(sheet->buf, sheet->bwidth, COLOR_WHITE, 8, 28 + i * FONT_HEIGHT, console.buf[i]);
         }
 
         sheet_refresh(sheet, 0, 0, sheet->bwidth, sheet->bheight);
