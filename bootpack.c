@@ -55,13 +55,20 @@ void console_newline(Console *console, bool put_prompt) {
 }
 
 void console_putc(Console *console, char c) {
-  console->buf[console->cursor_y][console->cursor_x] = c;
-  console->cursor_x++;
-  console->buf[console->cursor_y][console->cursor_x] = '\0';
-
-  if (console->cursor_x >= CONSOLE_COL_MAX - 1) {
-    // 右端まで達したら改行
+  if (c == '\n') {
     console_newline(console, false);
+  } else if (c == '\t') {
+    int pad = 4 - (console->cursor_x % 4);
+    for (int i = 0; i < pad; i++) console_putc(console, ' ');
+  } else {
+    console->buf[console->cursor_y][console->cursor_x] = c;
+    console->cursor_x++;
+    console->buf[console->cursor_y][console->cursor_x] = '\0';
+
+    if (console->cursor_x >= CONSOLE_COL_MAX - 1) {
+      // 右端まで達したら改行
+      console_newline(console, false);
+    }
   }
 }
 
@@ -199,7 +206,7 @@ void task_console_main(Sheet *sheet, int memsize) {
                 if (!(cur->type & 0x18)) { // neither directory nor file information
                   char buf[128];
                   make_file_name(cur, buf);
-                  sprintf(console.buf[console.cursor_y], "'%s' %d", buf, cur->size);
+                  sprintf(console.buf[console.cursor_y], "%s %d", buf, cur->size);
                   console_newline(&console, false);
                 }
               }
