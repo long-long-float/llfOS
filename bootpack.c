@@ -48,10 +48,47 @@ void console_newline(int *char_count, int *row_count, char char_buf[][CONSOLE_CO
   }
 }
 
+// 両端のスペースを取り除く
+void strip(char *str) {
+  int head = 0;
+  for (; str[head] && str[head] == ' '; head++) ;
+  int tail = strlen(str) - 1;
+  for (; tail > head && str[tail] == ' '; tail--) ;
+
+  for (int i = 0; i <= tail - head; i++) {
+    str[i] = str[i + head];
+  }
+  str[tail - head + 1] = '\0';
+}
+
+// 大文字に変換
+void upcase(char *str) {
+  for (int i = 0; str[i]; i++) {
+    if ('a' <= str[i] && str[i] <= 'z') {
+      str[i] = 'A' + str[i] - 'a';
+    }
+  }
+}
+
+void make_file_name(FileInfo *fi, char *buf) {
+  char *name = fi->name, *ext = fi->ext;
+
+  int i = 0, j = 0;
+  for (; i < 8 && name[i] != ' '; i++) buf[i] = name[i];
+
+  if (ext[0] != ' ') {
+    buf[i++] = '.';
+  }
+
+  for (; j < 3 && ext[j] != ' '; j++) buf[i + j] = ext[j];
+
+  buf[i + j] = '\0';
+}
+
 void task_console_main(Sheet *sheet, int memsize) {
   Task *task = task_current();
   MemoryMan *memman = (MemoryMan*)MEMORY_MAN_ADDRESS;
-  FileInfo *file_info = (FileInfo*)(ADR_DISKIMG + 0x002600);
+  const FileInfo *file_info = (FileInfo*)(ADR_DISKIMG + 0x002600);
 
   int fifobuf[128];
   FIFO32 *fifo = &task->fifo;
@@ -108,8 +145,16 @@ void task_console_main(Sheet *sheet, int memsize) {
             char_buf[row_count][--char_count] = '\0';
           }
         } else if (data == 0x0a) { // リターン
-          char cmd[124];
+          char cmd[124], args[124];
+
           strcpy(cmd, &char_buf[row_count][2]);
+
+          int args_head = 0;
+          for (; cmd[args_head] && cmd[args_head] != ' '; args_head++) ;
+          strcpy(args, &cmd[args_head]);
+          strip(args);
+
+          cmd[args_head] = '\0';
 
           if (strlen(cmd) > 0) {
             console_newline(&char_count, &row_count, char_buf, false);
@@ -126,24 +171,33 @@ void task_console_main(Sheet *sheet, int memsize) {
 
                 if (!(cur->type & 0x18)) { // neither directory nor file information
                   char buf[128];
-                  sprintf(buf, "xxxxxxxx.xxx %d", cur->size);
-                  for (int i = 0; i < 8; i++) buf[i] = cur->name[i];
-
-                  bool no_ext = true;
-                  for (int i = 0; i < 3; i++) {
-                    buf[i + 9] = cur->ext[i];
-                    if (no_ext && cur->ext[i] != ' ') {
-                      no_ext = false;
-                    }
-                  }
-
-                  if (no_ext) buf[8] = ' ';
-
-                  strcpy(char_buf[row_count], buf);
+                  make_file_name(cur, buf);
+                  sprintf(char_buf[row_count], "'%s' %d", buf, cur->size);
                   console_newline(&char_count, &row_count, char_buf, false);
                 }
               }
 
+            } else if (strcmp(cmd, "cat") == 0) {
+              upcase(args);
+
+              // FileInfoを探す
+              FileInfo *cur = file_info;
+              for (; cur->name[0] != 0; cur++) {
+                if (cur->name[0] == 0xe5) continue; // deleted file
+
+                char buf[124];
+                make_file_name(cur, buf);
+                if (strcmp(buf, args) == 0) break;
+              }
+
+              if (cur->name[0] == 0) {
+                strcpy(char_buf[row_count], "file not found");
+              } else {
+                const byte *file_content_addr = ADR_DISKIMG + 0x003e00 + cur->clustno * 512;
+                for (int i = 0; i < cur->size && i < 20; i++) {
+                  char_buf[row_count][char_count++] = file_content_addr[i];
+                }
+              }
             } else {
               char buf[124];
               sprintf(buf, "unknown command '%s'", cmd);
