@@ -265,7 +265,6 @@ void task_console_main(Sheet *sheet, int memsize) {
 
             } else if (strcmp(cmd, "cat") == 0) {
               upcase(args);
-
               FileInfo *file = file_find(file_info, args);
 
               if (!file) {
@@ -280,8 +279,26 @@ void task_console_main(Sheet *sheet, int memsize) {
                   console_puts(&console, content);
                 }
 
-                memory_man_free_4k(memman, content, file->size);
+                memory_man_free_4k(memman, (unsigned)content, file->size);
               }
+
+            } else if (strcmp(cmd, "exec") == 0) {
+              upcase(args);
+              FileInfo *file = file_find(file_info, args);
+
+              if (!file) {
+                console_puts(&console, "file not found");
+              } else {
+                char *content = (char*)memory_man_alloc_4k(memman, file->size);
+
+                file_read(file, content, file->size);
+
+                set_segmdesc(&gdt[1003], file->size - 1, (int)content, AR_CODE32_ER);
+                farjump(0, 1003 << 3);
+
+                memory_man_free_4k(memman, (unsigned)content, file->size);
+              }
+
             } else {
               char buf[124];
               sprintf(buf, "unknown command '%s'", cmd);

@@ -17,14 +17,18 @@ BIN2OBJ  = $(TOOLPATH)bin2obj.exe
 all:
 	make build
 
-helloos.img: ipl.bin llfos.sys
+helloos.img: ipl.bin llfos.sys app.bin
 	$(EDIMG) \
 		imgin:./tolset/z_tools/fdimg0at.tek \
 		wbinimg src:ipl.bin len:512 from:0 to:0 \
 		copy from:llfos.sys to:@: \
 		copy from:ipl.nas to:@: \
 		copy from:Makefile to:@: \
+		copy from:app.bin to:@: \
 		imgout:helloos.img
+
+app.bin: app.nas
+	$(NASK) app.nas app.bin app.lst
 
 ipl.bin: ipl.nas
 	$(NASK) ipl.nas ipl.bin ipl.lst
