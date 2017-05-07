@@ -118,9 +118,61 @@ void make_file_name(FileInfo *fi, char *buf) {
   buf[i + j] = '\0';
 }
 
+FileInfo *file_find(FileInfo *head, char *name) {
+  FileInfo *cur = head;
+  for (; cur->name[0] != 0; cur++) {
+    if (cur->name[0] == 0xe5) continue; // deleted file
+
+    char buf[124];
+    make_file_name(cur, buf);
+    if (strcmp(buf, name) == 0) return cur;
+  }
+
+  return NULL;
+}
+
+// 返り値: ファイルが全て読めたか
+bool file_read(FileInfo *file, char *buf, int buf_size) {
+  int idx_file = 0, current_clustno = file->clustno;
+  int idx_buf = 0;
+
+  while(idx_file < file->size) {
+    const byte *file_content_addr = (byte*)(ADR_DISKIMG + 0x003e00 + current_clustno * 512);
+
+    for (int j = 0; j < 512 && idx_file < file->size; idx_file++, j++) {
+      if (idx_buf < buf_size) {
+        buf[idx_buf] = file_content_addr[j];
+        idx_buf++;
+      } else {
+        return false;
+      }
+    }
+
+    // FATから次のセクタを取る
+    // FATのセクタは3バイトずつにまとめることで読めるようになる
+    // ab cd ef -> dab efc
+    // ||
+    //  - head_addr
+    byte *head_addr = (byte*)(ADR_DISKIMG + 0x000200 + current_clustno / 2 * 3);
+    int next_clustno = 0;
+    if (current_clustno % 2 == 0) {
+      next_clustno = *head_addr | ((*(head_addr + 1) & 0xf) << 4);
+    } else {
+      next_clustno = ((*(head_addr + 1) & 0xf0) >> 4) | (*(head_addr + 2) << 4);
+    }
+
+    if ((next_clustno & 0xff8) == 0xff8) break; // 0xff8 ~ 0xfffは続きはない
+
+    current_clustno = next_clustno;
+  }
+
+  return true;
+}
+
 void task_console_main(Sheet *sheet, int memsize) {
   Task *task = task_current();
   MemoryMan *memman = (MemoryMan*)MEMORY_MAN_ADDRESS;
+  SegmentDescriptor *gdt = (SegmentDescriptor*) ADR_GDT;
   FileInfo *file_info = (FileInfo*)(ADR_DISKIMG + 0x002600);
 
   int fifobuf[128];
@@ -214,45 +266,21 @@ void task_console_main(Sheet *sheet, int memsize) {
             } else if (strcmp(cmd, "cat") == 0) {
               upcase(args);
 
-              // FileInfoを探す
-              FileInfo *cur = file_info;
-              for (; cur->name[0] != 0; cur++) {
-                if (cur->name[0] == 0xe5) continue; // deleted file
+              FileInfo *file = file_find(file_info, args);
 
-                char buf[124];
-                make_file_name(cur, buf);
-                if (strcmp(buf, args) == 0) break;
-              }
-
-              if (cur->name[0] == 0) {
+              if (!file) {
                 console_puts(&console, "file not found");
               } else {
-                int idx_file = 0, current_clustno = cur->clustno;
+                char *content = (char*)memory_man_alloc_4k(memman, file->size + 1);
 
-                while(idx_file < cur->size) {
-                  const byte *file_content_addr = (byte*)(ADR_DISKIMG + 0x003e00 + current_clustno * 512);
+                file_read(file, content, file->size);
+                content[file->size] = '\0';
 
-                  for (int j = 0; j < 512 && idx_file < cur->size; idx_file++, j++) {
-                    console_putc(&console, file_content_addr[j]);
-                  }
-
-                  // FATから次のセクタを取る
-                  // FATのセクタは3バイトずつにまとめることで読めるようになる
-                  // ab cd ef -> dab efc
-                  // ||
-                  //  - head_addr
-                  byte *head_addr = (byte*)(ADR_DISKIMG + 0x000200 + current_clustno / 2 * 3);
-                  int next_clustno = 0;
-                  if (current_clustno % 2 == 0) {
-                    next_clustno = *head_addr | ((*(head_addr + 1) & 0xf) << 4);
-                  } else {
-                    next_clustno = ((*(head_addr + 1) & 0xf0) >> 4) | (*(head_addr + 2) << 4);
-                  }
-
-                  if ((next_clustno & 0xff8) == 0xff8) break; // 0xff8 ~ 0xfffは続きはない
-
-                  current_clustno = next_clustno;
+                for (int i = 0; i < file->size; i++) {
+                  console_puts(&console, content);
                 }
+
+                memory_man_free_4k(memman, content, file->size);
               }
             } else {
               char buf[124];
