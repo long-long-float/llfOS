@@ -227,9 +227,31 @@ void task_console_main(Sheet *sheet, int memsize) {
               if (cur->name[0] == 0) {
                 console_puts(&console, "file not found");
               } else {
-                const byte *file_content_addr = (byte*)(ADR_DISKIMG + 0x003e00 + cur->clustno * 512);
-                for (int i = 0; i < cur->size; i++) {
-                  console_putc(&console, file_content_addr[i]);
+                int idx_file = 0, current_clustno = cur->clustno;
+
+                while(idx_file < cur->size) {
+                  const byte *file_content_addr = (byte*)(ADR_DISKIMG + 0x003e00 + current_clustno * 512);
+
+                  for (int j = 0; j < 512 && idx_file < cur->size; idx_file++, j++) {
+                    console_putc(&console, file_content_addr[j]);
+                  }
+
+                  // FATから次のセクタを取る
+                  // FATのセクタは3バイトずつにまとめることで読めるようになる
+                  // ab cd ef -> dab efc
+                  // ||
+                  //  - head_addr
+                  byte *head_addr = (byte*)(ADR_DISKIMG + 0x000200 + current_clustno / 2 * 3);
+                  int next_clustno = 0;
+                  if (current_clustno % 2 == 0) {
+                    next_clustno = *head_addr | ((*(head_addr + 1) & 0xf) << 4);
+                  } else {
+                    next_clustno = ((*(head_addr + 1) & 0xf0) >> 4) | (*(head_addr + 2) << 4);
+                  }
+
+                  if ((next_clustno & 0xff8) == 0xff8) break; // 0xff8 ~ 0xfffは続きはない
+
+                  current_clustno = next_clustno;
                 }
               }
             } else {
