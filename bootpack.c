@@ -7,21 +7,6 @@
 #define FIFO_MOUSE_BEGIN   (FIFO_KEYBORD_END+1)
 #define FIFO_MOUSE_END     767
 
-#define CONSOLE_ROW_MAX 8
-#define CONSOLE_COL_MAX 30
-
-typedef struct {
-  byte name[8], ext[3], type;
-  char reserved[10];
-  unsigned short time, date, clustno;
-  unsigned int size;
-} FileInfo;
-
-typedef struct {
-  char buf[CONSOLE_ROW_MAX][CONSOLE_COL_MAX];
-  int cursor_x, cursor_y;
-} Console;
-
 extern TimerControl timerctl;
 
 void make_window8(byte *buf, int xsize, int ysize, char *title);
@@ -32,53 +17,6 @@ void putfonts8_asc_sht(Sheet *sht, int x, int y, int c, int b, char *s, int l) {
   sheet_refresh(sht, x, y, x + l * 8, y + 16);
 
   return;
-}
-
-void console_print(Console *console, char *str);
-
-void console_newline(Console *console, bool put_prompt) {
-  console->cursor_y++;
-  console->cursor_x = 0;
-
-  if (console->cursor_y >= CONSOLE_ROW_MAX) {
-    console->cursor_y--;
-    // 下端まで達したらずらす
-    for (int i = 1; i < CONSOLE_ROW_MAX; i++) {
-      strcpy(console->buf[i - 1], console->buf[i]);
-    }
-    console->buf[console->cursor_y][0] = '\0';
-  }
-
-  if (put_prompt) {
-    console_print(console, "> ");
-  }
-}
-
-void console_putc(Console *console, char c) {
-  if (c == '\n') {
-    console_newline(console, false);
-  } else if (c == '\t') {
-    int pad = 4 - (console->cursor_x % 4);
-    for (int i = 0; i < pad; i++) console_putc(console, ' ');
-  } else {
-    console->buf[console->cursor_y][console->cursor_x] = c;
-    console->cursor_x++;
-    console->buf[console->cursor_y][console->cursor_x] = '\0';
-
-    if (console->cursor_x >= CONSOLE_COL_MAX - 1) {
-      // 右端まで達したら改行
-      console_newline(console, false);
-    }
-  }
-}
-
-void console_print(Console *console, char *str) {
-  for (; *str; str++) console_putc(console, *str);
-}
-
-void console_puts(Console *console, char *str) {
-  console_print(console, str);
-  console_newline(console, false);
 }
 
 // 両端のスペースを取り除く
@@ -101,72 +39,6 @@ void upcase(char *str) {
       str[i] = 'A' + str[i] - 'a';
     }
   }
-}
-
-void make_file_name(FileInfo *fi, char *buf) {
-  char *name = fi->name, *ext = fi->ext;
-
-  int i = 0, j = 0;
-  for (; i < 8 && name[i] != ' '; i++) buf[i] = name[i];
-
-  if (ext[0] != ' ') {
-    buf[i++] = '.';
-  }
-
-  for (; j < 3 && ext[j] != ' '; j++) buf[i + j] = ext[j];
-
-  buf[i + j] = '\0';
-}
-
-FileInfo *file_find(FileInfo *head, char *name) {
-  FileInfo *cur = head;
-  for (; cur->name[0] != 0; cur++) {
-    if (cur->name[0] == 0xe5) continue; // deleted file
-
-    char buf[124];
-    make_file_name(cur, buf);
-    if (strcmp(buf, name) == 0) return cur;
-  }
-
-  return NULL;
-}
-
-// 返り値: ファイルが全て読めたか
-bool file_read(FileInfo *file, char *buf, int buf_size) {
-  int idx_file = 0, current_clustno = file->clustno;
-  int idx_buf = 0;
-
-  while(idx_file < file->size) {
-    const byte *file_content_addr = (byte*)(ADR_DISKIMG + 0x003e00 + current_clustno * 512);
-
-    for (int j = 0; j < 512 && idx_file < file->size; idx_file++, j++) {
-      if (idx_buf < buf_size) {
-        buf[idx_buf] = file_content_addr[j];
-        idx_buf++;
-      } else {
-        return false;
-      }
-    }
-
-    // FATから次のセクタを取る
-    // FATのセクタは3バイトずつにまとめることで読めるようになる
-    // ab cd ef -> dab efc
-    // ||
-    //  - head_addr
-    byte *head_addr = (byte*)(ADR_DISKIMG + 0x000200 + current_clustno / 2 * 3);
-    int next_clustno = 0;
-    if (current_clustno % 2 == 0) {
-      next_clustno = *head_addr | ((*(head_addr + 1) & 0xf) << 4);
-    } else {
-      next_clustno = ((*(head_addr + 1) & 0xf0) >> 4) | (*(head_addr + 2) << 4);
-    }
-
-    if ((next_clustno & 0xff8) == 0xff8) break; // 0xff8 ~ 0xfffは続きはない
-
-    current_clustno = next_clustno;
-  }
-
-  return true;
 }
 
 void task_console_main(Sheet *sheet, int memsize) {
@@ -257,7 +129,7 @@ void task_console_main(Sheet *sheet, int memsize) {
 
                 if (!(cur->type & 0x18)) { // neither directory nor file information
                   char buf[128];
-                  make_file_name(cur, buf);
+                  file_make_name(cur, buf);
                   sprintf(console.buf[console.cursor_y], "%s %d", buf, cur->size);
                   console_newline(&console, false);
                 }

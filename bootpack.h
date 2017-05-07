@@ -322,3 +322,32 @@ void task_run(Task *task, int level, int priority);
 void task_switch();
 Task *task_current();
 void task_sleep(Task *task);
+
+// file.c
+
+typedef struct {
+  byte name[8], ext[3], type;
+  char reserved[10];
+  unsigned short time, date, clustno;
+  unsigned int size;
+} FileInfo;
+
+void file_make_name(FileInfo *fi, char *buf);
+FileInfo *file_find(FileInfo *head, char *name);
+bool file_read(FileInfo *file, char *buf, int buf_size);
+
+// console.c
+
+#define CONSOLE_ROW_MAX 8
+#define CONSOLE_COL_MAX 30
+
+typedef struct {
+  char buf[CONSOLE_ROW_MAX][CONSOLE_COL_MAX];
+  int cursor_x, cursor_y;
+} Console;
+
+void console_newline(Console *console, bool put_prompt);
+void console_putc(Console *console, char c);
+void console_print(Console *console, char *str);
+void console_puts(Console *console, char *str);
+
