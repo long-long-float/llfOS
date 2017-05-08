@@ -2,6 +2,10 @@
 
 typedef unsigned char byte;
 
+// bootpack.c
+
+void api_call(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax);
+
 // boolean
 typedef _Bool bool;
 #define true  1
@@ -32,12 +36,14 @@ void load_gdtr(int limit, void *addr);
 void load_idtr(int limit, void *addr);
 void load_tr(int tr);
 void farjump(int eip, int cs);
+void farcall(int eip, int cs);
 int load_cr0();
 void store_cr0(int cr0);
 void asm_inthandler20();
 void asm_inthandler21();
 void asm_inthandler27();
 void asm_inthandler2c();
+void asm_api_call();
 unsigned memtest_sub(unsigned start, unsigned end);
 
 // graphic.c

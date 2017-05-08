@@ -1,5 +1,7 @@
+[INSTRSET "i486p"]
 [BITS 32]
-  CLI
-fin:
-  HLT
-  JMP fin
+  MOV EDX,1
+  MOV EAX,'A'
+  INT 0x40
+  RETF
+

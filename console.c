@@ -1,4 +1,5 @@
 #include "bootpack.h"
+#include <string.h>
 
 void console_newline(Console *console, bool put_prompt) {
   console->cursor_y++;

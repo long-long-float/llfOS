@@ -11,6 +11,24 @@ extern TimerControl timerctl;
 
 void make_window8(byte *buf, int xsize, int ysize, char *title);
 
+void api_call(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax) {
+  Console *console = *(Console**)(0x0fec);
+
+  switch (edx) {
+    case 1:
+      console_putc(console, eax & 0xff);
+      break;
+    case 2:
+      console_print(console, (char*)ebx);
+      break;
+    case 3:
+      for (int i = 0; i < ecx; i++) {
+        console_putc(console, ((char*)ebx)[i]);
+      }
+      break;
+  }
+}
+
 void putfonts8_asc_sht(Sheet *sht, int x, int y, int c, int b, char *s, int l) {
   boxfill8(sht->buf, sht->bwidth, b, x, y, x + l * 8 - 1, y + 15);
   putfonts8_asc(sht->buf, sht->bwidth, c, x, y, s);
@@ -56,6 +74,7 @@ void task_console_main(Sheet *sheet, int memsize) {
   timer_settime(timer, 50);
 
   Console console;
+  *((Console**)0x0fec) = &console;
 
   Color cursor_c = COLOR_WHITE;
 
@@ -166,7 +185,7 @@ void task_console_main(Sheet *sheet, int memsize) {
                 file_read(file, content, file->size);
 
                 set_segmdesc(&gdt[1003], file->size - 1, (int)content, AR_CODE32_ER);
-                farjump(0, 1003 << 3);
+                farcall(0, 1003 << 3);
 
                 memory_man_free_4k(memman, (unsigned)content, file->size);
               }

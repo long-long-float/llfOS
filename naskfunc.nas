@@ -11,9 +11,10 @@
   GLOBAL _load_tr
   GLOBAL _load_cr0, _store_cr0
   GLOBAL  _asm_inthandler21, _asm_inthandler27, _asm_inthandler2c, _asm_inthandler20
-  GLOBAL _farjump
+  GLOBAL _farjump, _farcall
   GLOBAL _memtest_sub
-  EXTERN  _inthandler21, _inthandler27, _inthandler2c, _inthandler20
+  GLOBAL _asm_api_call
+  EXTERN  _inthandler21, _inthandler27, _inthandler2c, _inthandler20, _api_call
 
 [SECTION .text]
 _io_hlt:
@@ -168,8 +169,21 @@ _asm_inthandler20:
   POP		ES
   IRETD
 
+_asm_api_call:
+  STI    ; 割り込みでこれが呼ばれるので割り込み許可に戻しておく
+  PUSHAD ; 元のレジスタを保存する
+  PUSHAD ; api_callに渡す
+  CALL _api_call
+  ADD ESP, 32 ; レジスタ全部(32byte)
+  POPAD
+  IRETD  ; 割り込みなので
+
 _farjump: ; void farjump(int eip, int cs);
   JMP FAR [ESP+4]
+  RET
+
+_farcall: ; void farcall(int eip, int cs);
+  CALL FAR [ESP+4]
   RET
 
 _memtest_sub: ; unsigned memtest_sub(unsigned start, unsigned end)
@@ -210,7 +224,6 @@ mts_fin:
   POP  ESI
   POP  EDI
   RET
-
 
 
 

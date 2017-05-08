@@ -1,4 +1,5 @@
 #include "bootpack.h"
+#include <string.h>
 
 void file_make_name(FileInfo *fi, char *buf) {
   char *name = fi->name, *ext = fi->ext;
