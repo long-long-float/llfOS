@@ -174,12 +174,14 @@ void task_console_main(Sheet *sheet, int memsize) {
                 memory_man_free_4k(memman, (unsigned)content, file->size);
               }
 
-            } else if (strcmp(cmd, "exec") == 0) {
-              upcase(args);
-              FileInfo *file = file_find(file_info, args);
+            } else {
+              upcase(cmd);
+              FileInfo *file = file_find(file_info, cmd);
 
               if (!file) {
-                console_puts(&console, "file not found");
+                char buf[124];
+                sprintf(buf, "unknown command '%s'", cmd);
+                console_puts(&console, buf);
               } else {
                 char *content = (char*)memory_man_alloc_4k(memman, file->size);
                 *((byte**)0x0fe8) = content;
@@ -191,11 +193,6 @@ void task_console_main(Sheet *sheet, int memsize) {
 
                 memory_man_free_4k(memman, (unsigned)content, file->size);
               }
-
-            } else {
-              char buf[124];
-              sprintf(buf, "unknown command '%s'", cmd);
-              console_puts(&console, buf);
             }
           }
 
