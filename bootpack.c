@@ -188,6 +188,14 @@ void task_console_main(Sheet *sheet, int memsize) {
 
                 file_read(file, content, file->size);
 
+                // C言語からコンパイルされた実行ファイルだった場合
+                if (file->size >= 8 && strncmp(&content[4], "Hari", 4) == 0) {
+                  byte header[] = { 0xe8, 0x16, 0x00, 0x00, 0x00, 0xcb };
+                  for (int i = 0; i < 6; i++) {
+                    content[i] = header[i];
+                  }
+                }
+
                 set_segmdesc(&gdt[1003], file->size - 1, (int)content, AR_CODE32_ER);
                 farcall(0, 1003 << 3);
 

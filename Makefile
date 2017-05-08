@@ -31,9 +31,6 @@ helloos.img: ipl.bin llfos.sys app.bin
 		copy from:app.bin to:@: \
 		imgout:helloos.img
 
-app.bin: app.nas
-	$(NASK) app.nas app.bin app.lst
-
 ipl.bin: ipl.nas
 	$(NASK) ipl.nas ipl.bin ipl.lst
 
@@ -61,6 +58,12 @@ bootpack.bim: $(OBJS_BOOTPATH)
 
 bootpack.hrb: bootpack.bim
 	$(BIM2HRB) bootpack.bim bootpack.hrb 0
+
+app.bim: app.obj api_nask.obj
+	$(OBJ2BIM) @$(RULEFILE) out:app.bim map:app.map app.obj api_nask.obj
+
+app.bin: app.bim
+	$(BIM2HRB) app.bim app.bin 0
 
 llfos.sys: asmhead.bin bootpack.hrb
 	cat asmhead.bin bootpack.hrb > llfos.sys
