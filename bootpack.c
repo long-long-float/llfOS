@@ -13,17 +13,18 @@ void make_window8(byte *buf, int xsize, int ysize, char *title);
 
 void api_call(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax) {
   Console *console = *(Console**)(0x0fec);
+  int base_addr = *(int*)(0x0fe8);  // CSレジスタの代わり
 
   switch (edx) {
     case 1:
       console_putc(console, eax & 0xff);
       break;
     case 2:
-      console_print(console, (char*)ebx);
+      console_print(console, (char*)(ebx + base_addr));
       break;
     case 3:
       for (int i = 0; i < ecx; i++) {
-        console_putc(console, ((char*)ebx)[i]);
+        console_putc(console, ((char*)(ebx + base_addr))[i]);
       }
       break;
   }
@@ -181,6 +182,7 @@ void task_console_main(Sheet *sheet, int memsize) {
                 console_puts(&console, "file not found");
               } else {
                 char *content = (char*)memory_man_alloc_4k(memman, file->size);
+                *((byte**)0x0fe8) = content;
 
                 file_read(file, content, file->size);
 

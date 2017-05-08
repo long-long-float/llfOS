@@ -1,7 +1,8 @@
 [INSTRSET "i486p"]
 [BITS 32]
-  MOV EDX,1
-  MOV EAX,'A'
+  MOV EDX,2
+  MOV EBX,msg
   INT 0x40
   RETF
-
+msg:
+  DB "Hello World!", 0
